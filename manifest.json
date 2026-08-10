@@ -1,0 +1,12 @@
+{
+    "display_name": "主题订阅器",
+    "loading_order": 20,
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Zeya",
+    "version": "0.2.1",
+    "description": "从受信任的 GitHub 主题目录一键安装、更新并切换 SillyTavern 主题。",
+    "minimum_client_version": "1.14.0",
+    "homePage": "https://github.com/jiuyi777/sillytavern-theme-subscriber",
+    "auto_update": true
+}
