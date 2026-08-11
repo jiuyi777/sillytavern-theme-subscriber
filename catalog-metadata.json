@@ -1,0 +1,27 @@
+{
+    "themes": {
+        "春来": {
+            "appearance": "light",
+            "versions": {
+                "春来.json": {
+                    "name": "原版",
+                    "changelog": "春来主题最初发布版本。"
+                }
+            }
+        },
+        "春来（加了一抹绿）": {
+            "appearance": "light",
+            "default_source_file": "春来v0.1.json",
+            "versions": {
+                "春来v0.1.json": {
+                    "name": "初始版本",
+                    "changelog": "保留最初的清爽纸张质感，作为默认推荐版本。"
+                },
+                "春来（加了一抹绿）.json": {
+                    "name": "加了毛玻璃",
+                    "changelog": "消息区域增加半透明毛玻璃效果。"
+                }
+            }
+        }
+    }
+}

@@ -1,13 +1,15 @@
 # SillyTavern 主题订阅器
 
 作者：Zeya  
-当前版本：0.3.0
+当前版本：0.4.0
 最低 SillyTavern 版本：1.14.0
 
 ## 功能
 
 - 从受信任的 GitHub、GitHub Pages 或 jsDelivr HTTPS 地址读取主题目录。
-- 在 SillyTavern 扩展设置中显示主题、全部保留版本、说明和预览图，默认选择最新版。
+- 在 SillyTavern 扩展设置中显示主题、全部保留版本、说明和预览图，默认选择推荐版本。
+- 主题按日间与黑夜分组，版本显示可读名称、推荐标记和简短更新记录。
+- GitHub Raw 下载较慢时自动重试，并尝试 jsDelivr 备用地址。
 - 安装或更新前校验目录声明的 SHA-256。
 - 点击一次即可安装或更新主题、自动刷新并切换。
 - 主题包含的远程图片、字体和 `@import` 会随主题加载，并在控制台留下资源提示。
@@ -88,10 +90,11 @@ https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%
 
 - 稳定且唯一的 `id`
 - 与主题 JSON 内 `name` 完全一致的 `name`
-- 指向默认最新版的 `latest_version`
-- `versions` 数组；每个版本包含 `version`、`theme_url`、对主题 JSON 原始字节计算得到的 `sha256`
+- `appearance`：`light` 或 `dark`
+- `latest_version` 与可单独设置的 `default_version`
+- `versions` 数组；每个版本包含 `version`、`version_name`、`changelog`、`theme_url` 和对主题 JSON 原始字节计算得到的 `sha256`
 
-更新主题时追加版本记录并调整 `latest_version`。订阅器仍兼容旧的 schema v1 单版本目录，并以 SHA-256 判断实际内容，不会只相信版本文字。
+更新主题时追加版本记录、填写简短更新说明并调整 `latest_version`；需要推荐旧版时可单独设置 `default_version`。订阅器仍兼容旧的 schema v1 单版本目录，并以 SHA-256 判断实际内容，不会只相信版本文字。
 
 ## 当前证据状态
 

@@ -9,7 +9,8 @@ const DEFAULT_CATALOG_URL = 'https://api.github.com/repos/jiuyi777/sillytavern-t
 const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
 const MAX_CATALOG_RESPONSE_BYTES = Math.ceil(MAX_CATALOG_BYTES * 4 / 3) + 64 * 1024;
 const MAX_THEME_BYTES = 8 * 1024 * 1024;
-const FETCH_TIMEOUT_MS = 20000;
+const FETCH_TIMEOUT_MS = 60000;
+const FETCH_ATTEMPTS = 2;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/i;
 const THEME_KEYS = Object.freeze([
     'name',
@@ -124,48 +125,63 @@ function requireTrustedUrl(value, label) {
 
 async function fetchResource(url, maxBytes, label) {
     const safeUrl = requireTrustedUrl(url, label);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-    try {
-        const response = await fetch(safeUrl, {
-            method: 'GET',
-            credentials: 'omit',
-            cache: 'no-store',
-            redirect: 'follow',
-            signal: controller.signal,
-            headers: { Accept: 'application/json,text/plain;q=0.9' },
-        });
-
-        if (!response.ok) {
-            throw new Error(`${label}请求失败：HTTP ${response.status}`);
+    const parsedUrl = new URL(safeUrl);
+    const candidates = [safeUrl];
+    if (parsedUrl.hostname === 'raw.githubusercontent.com') {
+        const parts = parsedUrl.pathname.split('/').filter(Boolean);
+        if (parts.length >= 4) {
+            const [owner, repository, ref, ...fileParts] = parts;
+            candidates.push(`https://cdn.jsdelivr.net/gh/${owner}/${repository}@${ref}/${fileParts.join('/')}`);
         }
-        requireTrustedUrl(response.url, `${label}重定向地址`);
-
-        const length = Number(response.headers.get('content-length') || 0);
-        if (length > maxBytes) {
-            throw new Error(`${label}超过允许大小。`);
-        }
-
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        if (bytes.byteLength > maxBytes) {
-            throw new Error(`${label}超过允许大小。`);
-        }
-        let text;
-        try {
-            text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-        } catch {
-            throw new Error(`${label}不是有效 UTF-8 文本。`);
-        }
-        return { text, bytes };
-    } catch (error) {
-        if (error?.name === 'AbortError') {
-            throw new Error(`${label}请求超时。`);
-        }
-        throw error;
-    } finally {
-        clearTimeout(timer);
     }
+
+    let lastError;
+    for (const candidate of [...new Set(candidates)]) {
+        for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+            try {
+                const response = await fetch(candidate, {
+                    method: 'GET',
+                    credentials: 'omit',
+                    cache: 'no-store',
+                    redirect: 'follow',
+                    signal: controller.signal,
+                    headers: { Accept: 'application/json,text/plain;q=0.9' },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`${label}请求失败：HTTP ${response.status}`);
+                }
+                requireTrustedUrl(response.url, `${label}重定向地址`);
+
+                const length = Number(response.headers.get('content-length') || 0);
+                if (length > maxBytes) {
+                    throw new Error(`${label}超过允许大小。`);
+                }
+
+                const bytes = new Uint8Array(await response.arrayBuffer());
+                if (bytes.byteLength > maxBytes) {
+                    throw new Error(`${label}超过允许大小。`);
+                }
+                let text;
+                try {
+                    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+                } catch {
+                    throw new Error(`${label}不是有效 UTF-8 文本。`);
+                }
+                return { text, bytes };
+            } catch (error) {
+                lastError = error?.name === 'AbortError' ? new Error(`${label}请求超时。`) : error;
+                if (attempt < FETCH_ATTEMPTS) {
+                    await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+                }
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+    }
+    throw lastError || new Error(`${label}请求失败。`);
 }
 
 function parseJson(text, label) {
@@ -229,7 +245,10 @@ function normalizeThemeVersion(versionEntry, theme, versionIndex) {
     return {
         id: theme.id,
         name: theme.name,
+        themeName: String(versionEntry.theme_name || theme.name).trim().slice(0, 128),
         version,
+        versionName: String(versionEntry.version_name || `v${version}`).trim().slice(0, 80),
+        changelog: String(versionEntry.changelog || '暂无更新说明。').trim().slice(0, 300),
         themeUrl,
         sha256,
         description: theme.description,
@@ -257,6 +276,8 @@ function normalizeThemeEntry(entry, index, schemaVersion) {
     const theme = {
         id,
         name,
+        displayName: String(entry.display_name || name).trim().slice(0, 128),
+        appearance: entry.appearance === 'light' ? 'light' : 'dark',
         description: String(entry.description || '').trim().slice(0, 500),
         previewUrl: entry.preview_url ? requireTrustedUrl(entry.preview_url, `主题“${name}”预览地址`) : '',
     };
@@ -276,10 +297,17 @@ function normalizeThemeEntry(entry, index, schemaVersion) {
     if (latestIndex < 0) {
         throw new Error(`主题“${name}”的 latest_version 不在版本列表中。`);
     }
-    const [latest] = versions.splice(latestIndex, 1);
-    versions.unshift(latest);
+    const defaultVersion = schemaVersion === 1
+        ? latestVersion
+        : String(entry.default_version || latestVersion).trim();
+    const defaultIndex = versions.findIndex(item => item.version === defaultVersion);
+    if (defaultIndex < 0) {
+        throw new Error(`主题“${name}”的 default_version 不在版本列表中。`);
+    }
+    const [defaultEntry] = versions.splice(defaultIndex, 1);
+    versions.unshift(defaultEntry);
 
-    return { ...theme, latestVersion, versions };
+    return { ...theme, latestVersion, defaultVersion, versions };
 }
 
 function validateCatalog(value) {
@@ -402,37 +430,39 @@ function resumePendingThemeActivation() {
 async function installTheme(entry, button) {
     const settings = getSettings();
     const installed = settings.installed[entry.id];
-    if (installed?.sha256 === entry.sha256 && activateExistingTheme(entry.name)) {
+    if (installed?.sha256 === entry.sha256 && activateExistingTheme(entry.themeName)) {
         return;
     }
 
-    const action = installed ? '切换版本' : '安装';
     button.disabled = true;
-    button.textContent = `${action}中…`;
+    button.textContent = '正在下载…';
 
     try {
         const resource = await fetchResource(entry.themeUrl, MAX_THEME_BYTES, `主题“${entry.name}”`);
+        button.textContent = '正在校验…';
         const actualHash = await sha256Hex(resource.bytes);
         if (actualHash !== entry.sha256) {
             throw new Error(`主题“${entry.name}”的 SHA-256 与目录记录不一致，已停止安装。`);
         }
 
-        const theme = validateTheme(parseJson(resource.text, `主题“${entry.name}”`), entry.name);
+        const theme = validateTheme(parseJson(resource.text, `主题“${entry.name}”`), entry.themeName);
         const warnings = getThemeWarnings(theme);
         if (warnings.length) {
             console.info(`[主题订阅器] “${entry.name}”资源提示：${warnings.join(' ')}`);
         }
 
+        button.textContent = '正在保存…';
         await saveTheme(theme);
         settings.installed[entry.id] = {
-            name: entry.name,
+            name: entry.themeName,
             version: entry.version,
+            versionName: entry.versionName,
             sha256: entry.sha256,
             themeUrl: entry.themeUrl,
             installedAt: new Date().toISOString(),
         };
         ctx.saveSettingsDebounced();
-        scheduleThemeActivation(entry.name);
+        scheduleThemeActivation(entry.themeName);
     } catch (error) {
         console.error('[主题订阅器] 安装失败', error);
         notify('error', error?.message || String(error));
@@ -456,23 +486,36 @@ function updateInstallButton(button, entry, installed) {
     button.textContent = '安装此版本并切换';
 }
 
-function createThemeCard(entry) {
+function createThemeCard(entry, toneIndex) {
     const settings = getSettings();
     const installed = settings.installed[entry.id];
     const card = document.createElement('article');
     card.className = 'theme-subscriber-card';
+    card.dataset.appearance = entry.appearance;
+    card.dataset.tone = String(toneIndex % 5);
 
+    const preview = document.createElement('div');
+    preview.className = 'theme-subscriber-preview-shell';
     if (entry.previewUrl) {
         const image = document.createElement('img');
         image.className = 'theme-subscriber-preview';
         image.src = entry.previewUrl;
-        image.alt = `${entry.name}主题预览`;
+        image.alt = `${entry.displayName}主题预览`;
         image.loading = 'lazy';
         image.referrerPolicy = 'no-referrer';
-        card.append(image);
+        preview.append(image);
     } else {
-        card.classList.add('theme-subscriber-card-no-preview');
+        const mockWindow = document.createElement('div');
+        mockWindow.className = 'theme-subscriber-preview-window';
+        mockWindow.setAttribute('aria-hidden', 'true');
+        mockWindow.innerHTML = '<span></span><span></span><span></span>';
+        preview.append(mockWindow);
     }
+    const appearanceLabel = document.createElement('span');
+    appearanceLabel.className = 'theme-subscriber-appearance-badge';
+    appearanceLabel.textContent = entry.appearance === 'light' ? '日间' : '黑夜';
+    preview.append(appearanceLabel);
+    card.append(preview);
 
     const content = document.createElement('div');
     content.className = 'theme-subscriber-card-content';
@@ -480,7 +523,7 @@ function createThemeCard(entry) {
     const heading = document.createElement('div');
     heading.className = 'theme-subscriber-card-heading';
     const title = document.createElement('strong');
-    title.textContent = entry.name;
+    title.textContent = entry.displayName;
     const version = document.createElement('span');
     version.className = 'theme-subscriber-version';
     version.textContent = `${entry.versions.length} 个版本`;
@@ -498,12 +541,18 @@ function createThemeCard(entry) {
     for (const versionEntry of entry.versions) {
         const option = document.createElement('option');
         option.value = versionEntry.version;
-        option.textContent = `v${versionEntry.version}${versionEntry.version === entry.latestVersion ? '（最新版）' : ''}`;
+        const markers = [];
+        if (versionEntry.version === entry.defaultVersion) markers.push('推荐');
+        if (versionEntry.version === entry.latestVersion) markers.push('最新');
+        option.textContent = `${versionEntry.versionName}${markers.length ? ` · ${markers.join(' / ')}` : ''}`;
         versionSelect.append(option);
     }
     versionRow.append(versionLabel, versionSelect);
 
+    const changelog = document.createElement('p');
+    changelog.className = 'theme-subscriber-changelog';
     const meta = document.createElement('small');
+    meta.className = 'theme-subscriber-meta';
 
     const button = document.createElement('button');
     button.type = 'button';
@@ -511,14 +560,15 @@ function createThemeCard(entry) {
     let selectedVersion = entry.versions[0];
     const refreshSelectedVersion = () => {
         selectedVersion = entry.versions.find(item => item.version === versionSelect.value) || entry.versions[0];
-        meta.textContent = `SHA-256 ${selectedVersion.sha256.slice(0, 12)}…${selectedVersion.minimumClientVersion ? ` · ST ≥ ${selectedVersion.minimumClientVersion}` : ''}${selectedVersion.status ? ` · ${selectedVersion.status === 'test' ? '测试中' : '已完成'}` : ''}`;
+        changelog.textContent = `更新记录：${selectedVersion.changelog}`;
+        meta.textContent = `${selectedVersion.versionName} · SHA-256 ${selectedVersion.sha256.slice(0, 10)}…${selectedVersion.status ? ` · ${selectedVersion.status === 'test' ? '测试中' : '已完成'}` : ''}`;
         updateInstallButton(button, selectedVersion, installed);
     };
     versionSelect.addEventListener('change', refreshSelectedVersion);
     button.addEventListener('click', () => installTheme(selectedVersion, button));
     refreshSelectedVersion();
 
-    content.append(heading, description, versionRow, meta, button);
+    content.append(heading, description, versionRow, changelog, meta, button);
     card.append(content);
     return card;
 }
@@ -526,7 +576,9 @@ function createThemeCard(entry) {
 function renderCatalog(catalog) {
     const list = document.getElementById('theme-subscriber-list');
     const status = document.getElementById('theme-subscriber-status');
+    const tabs = document.getElementById('theme-subscriber-tabs');
     list.replaceChildren();
+    tabs.replaceChildren();
 
     if (catalog.themes.length === 0) {
         status.textContent = `${catalog.name}：当前没有已发布主题。`;
@@ -534,10 +586,37 @@ function renderCatalog(catalog) {
     }
 
     const versionCount = catalog.themes.reduce((total, theme) => total + theme.versions.length, 0);
-    status.textContent = `${catalog.name} · ${catalog.themes.length} 个主题 · ${versionCount} 个版本${catalog.updatedAt ? ` · 更新于 ${catalog.updatedAt}` : ''}`;
-    for (const entry of catalog.themes) {
-        list.append(createThemeCard(entry));
+    const updatedText = catalog.updatedAt
+        ? new Date(catalog.updatedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '刚刚';
+    status.textContent = `${catalog.themes.length} 个主题 · ${versionCount} 个版本 · ${updatedText} 同步`;
+
+    const groups = [
+        { appearance: 'light', label: '日间主题' },
+        { appearance: 'dark', label: '黑夜主题' },
+    ];
+    const renderGroup = appearance => {
+        const entries = catalog.themes.filter(theme => theme.appearance === appearance);
+        list.replaceChildren();
+        entries.forEach((entry, index) => list.append(createThemeCard(entry, index)));
+        for (const tab of tabs.querySelectorAll('button')) {
+            const selected = tab.dataset.appearance === appearance;
+            tab.classList.toggle('theme-subscriber-tab-active', selected);
+            tab.setAttribute('aria-selected', String(selected));
+        }
+    };
+    for (const group of groups) {
+        const count = catalog.themes.filter(theme => theme.appearance === group.appearance).length;
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.className = 'theme-subscriber-tab';
+        tab.dataset.appearance = group.appearance;
+        tab.setAttribute('role', 'tab');
+        tab.textContent = `${group.label} ${count}`;
+        tab.addEventListener('click', () => renderGroup(group.appearance));
+        tabs.append(tab);
     }
+    renderGroup(catalog.themes.some(theme => theme.appearance === 'light') ? 'light' : 'dark');
 }
 
 async function loadCatalog() {
@@ -577,18 +656,32 @@ function createPanel() {
     drawer.className = 'inline-drawer';
     drawer.innerHTML = `
         <div class="inline-drawer-toggle inline-drawer-header">
-            <b>GitHub 主题订阅器</b>
+            <b>主题订阅器</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
-            <label for="theme-subscriber-url">主题目录地址</label>
-            <div class="theme-subscriber-url-row">
-                <input id="theme-subscriber-url" class="text_pole" type="url" inputmode="url" autocomplete="off" spellcheck="false">
-                <button id="theme-subscriber-refresh" class="menu_button" type="button">检查更新</button>
+            <div class="theme-subscriber-hero">
+                <div>
+                    <small class="theme-subscriber-eyebrow">THEME LIBRARY</small>
+                    <h3>我的主题库</h3>
+                    <p>远程安装、保留版本、随时切换</p>
+                </div>
+                <button id="theme-subscriber-refresh" class="menu_button theme-subscriber-refresh" type="button">
+                    <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                    <span>检查更新</span>
+                </button>
             </div>
-            <small>默认选择最新版，也可从主题卡片选择任意保留版本。仅接受 GitHub、GitHub Pages 和 jsDelivr 的 HTTPS 地址；安装前必须通过 SHA-256 校验。</small>
             <div id="theme-subscriber-status" class="theme-subscriber-status" aria-live="polite">尚未检查主题目录。</div>
+            <div id="theme-subscriber-tabs" class="theme-subscriber-tabs" role="tablist" aria-label="主题显示模式"></div>
             <div id="theme-subscriber-list" class="theme-subscriber-list"></div>
+            <details class="theme-subscriber-connection">
+                <summary>主题库连接设置</summary>
+                <label for="theme-subscriber-url">主题目录地址</label>
+                <div class="theme-subscriber-url-row">
+                    <input id="theme-subscriber-url" class="text_pole" type="url" inputmode="url" autocomplete="off" spellcheck="false">
+                </div>
+                <small>安装前会校验 SHA-256；GitHub 下载缓慢时会自动重试并尝试备用地址。</small>
+            </details>
         </div>`;
 
     panel.append(drawer);
@@ -617,6 +710,7 @@ function initialize() {
     });
     document.getElementById('theme-subscriber-refresh').addEventListener('click', loadCatalog);
     resumePendingThemeActivation();
+    void loadCatalog();
 }
 
 if (eventTypes?.APP_READY) {

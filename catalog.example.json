@@ -6,12 +6,17 @@
         {
             "id": "example-theme",
             "name": "示例主题",
+            "display_name": "示例主题",
             "description": "替换为正式主题说明。",
             "preview_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/example-theme/preview.webp",
+            "appearance": "light",
             "latest_version": "1.1.0",
+            "default_version": "1.0.0",
             "versions": [
                 {
                     "version": "1.1.0",
+                    "version_name": "加了毛玻璃",
+                    "changelog": "消息区域增加半透明毛玻璃效果。",
                     "theme_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/2222222222222222222222222222222222222222/themes/example-theme/theme.json",
                     "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
                     "minimum_client_version": "1.14.0",
@@ -20,6 +25,8 @@
                 },
                 {
                     "version": "1.0.0",
+                    "version_name": "初始版本",
+                    "changelog": "首次发布版本。",
                     "theme_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/1111111111111111111111111111111111111111/themes/example-theme/theme.json",
                     "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
                     "minimum_client_version": "1.14.0",

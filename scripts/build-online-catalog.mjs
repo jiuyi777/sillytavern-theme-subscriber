@@ -10,6 +10,7 @@ const minimumClientVersion = '1.14.0';
 const projectRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const outputRoot = path.join(projectRoot, 'online-catalog');
 const outputThemes = path.join(outputRoot, 'themes');
+const metadataPath = path.join(projectRoot, 'catalog-metadata.json');
 const gitCache = path.join(path.dirname(projectRoot), '.asset-publish');
 const commitArgIndex = process.argv.indexOf('--commit');
 const commit = commitArgIndex >= 0 ? String(process.argv[commitArgIndex + 1] || '').trim() : '';
@@ -36,6 +37,30 @@ function versionFromDate(date) {
 function remoteUrl(fileName, ref) {
     const encodedPath = remoteDirectory.split('/').map(encodeURIComponent).join('/');
     return `https://raw.githubusercontent.com/${repository}/${ref}/${encodedPath}/${encodeURIComponent(fileName)}`;
+}
+
+function parseRgb(value) {
+    const input = String(value || '').trim();
+    const hex = input.match(/^#([0-9a-f]{6})$/i);
+    if (hex) {
+        return [0, 2, 4].map(offset => Number.parseInt(hex[1].slice(offset, offset + 2), 16));
+    }
+    const functional = input.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    return functional ? functional.slice(1, 4).map(Number) : null;
+}
+
+function inferAppearance(theme) {
+    const rgb = parseRgb(theme.blur_tint_color) || parseRgb(theme.chat_tint_color);
+    if (rgb) {
+        const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+        return luminance >= 0.55 ? 'light' : 'dark';
+    }
+    const textRgb = parseRgb(theme.main_text_color);
+    if (textRgb) {
+        const textLuminance = (0.2126 * textRgb[0] + 0.7152 * textRgb[1] + 0.0722 * textRgb[2]) / 255;
+        return textLuminance >= 0.6 ? 'dark' : 'light';
+    }
+    return 'dark';
 }
 
 async function collectSourceFiles() {
@@ -75,7 +100,13 @@ async function inspectTheme(file) {
     if (typeof parsed.custom_css !== 'string') {
         throw new Error(`主题缺少 custom_css：${file.fullPath}`);
     }
-    return { ...file, bytes, themeName: parsed.name.trim(), author: String(parsed.author || '') };
+    return {
+        ...file,
+        bytes,
+        themeName: parsed.name.trim(),
+        author: String(parsed.author || ''),
+        appearance: inferAppearance(parsed),
+    };
 }
 
 async function getPublishedHash(fileName, localBytes) {
@@ -170,12 +201,27 @@ async function loadExistingCatalog() {
         return {
             id: theme.id,
             name: theme.name,
+            display_name: theme.display_name || theme.name,
             description: theme.description || '',
             preview_url: theme.preview_url || undefined,
+            appearance: theme.appearance === 'light' ? 'light' : 'dark',
             latest_version: theme.latest_version || versions[0]?.version || '',
+            default_version: theme.default_version || theme.latest_version || versions[0]?.version || '',
             versions: versions.filter(version => version?.version && version?.theme_url && version?.sha256),
         };
     }).filter(theme => theme.id && theme.name && theme.versions.length);
+}
+
+function addDefaultVersionMetadata(versions) {
+    const chronological = [...versions].sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')));
+    return versions.map(version => {
+        const position = chronological.findIndex(item => item.version === version.version);
+        return {
+            ...version,
+            version_name: String(version.version_name || (position === 0 ? '初始版本' : `第 ${position} 次更新`)).slice(0, 80),
+            changelog: String(version.changelog || (position === 0 ? '首次收录到在线主题库。' : '同步主题文件更新。')).slice(0, 300),
+        };
+    });
 }
 
 function mergeVersions(existingVersions, candidates) {
@@ -216,6 +262,7 @@ async function main() {
     }
 
     const existingThemes = await loadExistingCatalog();
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
     const sourceFiles = await collectSourceFiles();
     const inspected = [];
     for (const sourceFile of sourceFiles) {
@@ -232,13 +279,20 @@ async function main() {
     const selectedByName = new Map(selected.map(file => [file.themeName, file]));
     const versionCandidates = await mapWithConcurrency(inspected, 6, async file => {
         const hash = await getPublishedHash(file.fileName, file.bytes);
+        const themeMetadata = metadata.themes?.[file.themeName] || {};
+        const versionMetadata = themeMetadata.versions?.[file.fileName] || {};
         return {
             version: versionFromDate(file.modifiedAt),
+            version_name: String(versionMetadata.name || '').trim(),
+            changelog: String(versionMetadata.changelog || '').trim(),
             theme_url: remoteUrl(file.fileName, commit || 'main'),
+            theme_name: file.themeName,
             sha256: hash,
             minimum_client_version: minimumClientVersion,
             updated_at: file.modifiedAt.toISOString(),
             status: file.status,
+            sourceFile: file.fileName,
+            appearance: themeMetadata.appearance || file.appearance,
             themeName: file.themeName,
         };
     });
@@ -246,7 +300,9 @@ async function main() {
     const candidatesByName = new Map();
     for (const candidate of versionCandidates) {
         const list = candidatesByName.get(candidate.themeName) || [];
-        const { themeName, ...version } = candidate;
+        const { themeName, sourceFile, appearance, ...version } = candidate;
+        version.source_file = sourceFile;
+        version.appearance = appearance;
         list.push(version);
         candidatesByName.set(themeName, list);
     }
@@ -255,21 +311,29 @@ async function main() {
     for (const [themeName, candidates] of candidatesByName) {
         const selectedFile = selectedByName.get(themeName);
         const existing = themesByName.get(themeName);
+        const themeMetadata = metadata.themes?.[themeName] || {};
         const id = existing?.id || `theme-${sha256(Buffer.from(themeName, 'utf8')).slice(0, 16)}`;
-        const versions = mergeVersions(existing?.versions || [], candidates);
+        const versions = addDefaultVersionMetadata(mergeVersions(existing?.versions || [], candidates));
         const selectedVersion = versionFromDate(selectedFile.modifiedAt);
         const selectedCandidate = candidates.find(version => version.version === selectedVersion);
         const latest = versions.find(version => version.version === selectedVersion)
             || (commit && selectedCandidate ? versions.find(version => version.sha256 === selectedCandidate.sha256) : null)
             || versions[0];
+        const defaultCandidate = themeMetadata.default_source_file
+            ? versions.find(version => version.source_file === themeMetadata.default_source_file)
+            : null;
+        const defaultVersion = defaultCandidate?.version || latest.version;
         themesByName.set(themeName, {
             id,
             name: themeName,
+            display_name: String(themeMetadata.display_name || existing?.display_name || themeName).slice(0, 128),
             description: selectedFile.status === 'test'
                 ? '当前测试中主题，可远程安装、更新和切换任意保留版本。'
                 : '已完成主题，可远程安装、更新和切换任意保留版本。',
             ...(existing?.preview_url ? { preview_url: existing.preview_url } : {}),
+            appearance: themeMetadata.appearance || candidates[0]?.appearance || existing?.appearance || 'dark',
             latest_version: latest.version,
+            default_version: defaultVersion,
             versions,
         });
     }
@@ -293,6 +357,8 @@ async function main() {
         uploadedFiles: inspected.length,
         catalogThemes: themes.length,
         catalogVersions: versionCount,
+        lightThemes: themes.filter(theme => theme.appearance === 'light').length,
+        darkThemes: themes.filter(theme => theme.appearance === 'dark').length,
         duplicateInternalNamesKeptAsVersions: duplicateCount,
         testFiles: inspected.filter(file => file.status === 'test').length,
         completedFiles: inspected.filter(file => file.status === 'complete').length,
