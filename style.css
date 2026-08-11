@@ -234,6 +234,36 @@
     overflow-wrap: anywhere;
 }
 
+.theme-subscriber-version-controls {
+    min-width: 0;
+}
+
+.theme-subscriber-no-approved {
+    margin: 0;
+    padding: 0.7rem 0.8rem;
+    border: 1px dashed var(--ts-line);
+    border-radius: 12px;
+    line-height: 1.45;
+    opacity: 0.78;
+}
+
+.theme-subscriber-other-versions {
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.7rem;
+    border: 1px solid var(--ts-line);
+    border-radius: 12px;
+    background: var(--ts-surface-soft);
+}
+
+.theme-subscriber-other-versions > summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.theme-subscriber-other-versions[open] > summary {
+    margin-bottom: 0.7rem;
+}
+
 #theme-subscriber-panel .theme-subscriber-install {
     width: 100%;
     min-height: 2.65rem;
