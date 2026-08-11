@@ -129,6 +129,71 @@ function chooseCatalogEntries(files) {
     return [...byThemeName.values()].sort((a, b) => a.themeName.localeCompare(b.themeName, 'zh-CN'));
 }
 
+async function loadExistingCatalog() {
+    let parsed;
+    try {
+        const raw = await readFile(path.join(outputRoot, 'catalog.json'), 'utf8');
+        parsed = JSON.parse(raw);
+    } catch (error) {
+        if (error?.code === 'ENOENT') {
+            try {
+                const apiPath = `https://api.github.com/repos/${repository}/contents/${remoteDirectory.split('/').map(encodeURIComponent).join('/').replace(/%2F/gi, '/').replace(/\/themes$/, '')}/catalog.json?ref=main`;
+                const response = await fetch(apiPath, { headers: { Accept: 'application/vnd.github+json' } });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const envelope = await response.json();
+                parsed = JSON.parse(Buffer.from(String(envelope.content || '').replace(/\s/g, ''), 'base64').toString('utf8'));
+            } catch (remoteError) {
+                console.warn(`远程旧目录读取失败，将从当前文件重建：${remoteError?.message || String(remoteError)}`);
+                return [];
+            }
+        } else {
+            console.warn(`旧目录读取失败，将从当前文件重建：${error?.message || String(error)}`);
+            return [];
+        }
+    }
+
+    if (!parsed || !Array.isArray(parsed.themes)) {
+        return [];
+    }
+    return parsed.themes.map(theme => {
+        const versions = parsed.schema_version === 2 && Array.isArray(theme.versions)
+            ? theme.versions
+            : [{
+                version: theme.version,
+                theme_url: theme.theme_url,
+                sha256: theme.sha256,
+                minimum_client_version: theme.minimum_client_version,
+                updated_at: theme.updated_at,
+            }];
+        return {
+            id: theme.id,
+            name: theme.name,
+            description: theme.description || '',
+            preview_url: theme.preview_url || undefined,
+            latest_version: theme.latest_version || versions[0]?.version || '',
+            versions: versions.filter(version => version?.version && version?.theme_url && version?.sha256),
+        };
+    }).filter(theme => theme.id && theme.name && theme.versions.length);
+}
+
+function mergeVersions(existingVersions, candidates) {
+    const merged = [...existingVersions];
+    for (const candidate of candidates) {
+        const sameVersionIndex = merged.findIndex(version => version.version === candidate.version);
+        if (sameVersionIndex >= 0) {
+            merged[sameVersionIndex] = candidate;
+            continue;
+        }
+        const sameContent = commit ? merged.find(version => version.sha256 === candidate.sha256) : null;
+        if (!sameContent) {
+            merged.push(candidate);
+        }
+    }
+    return merged.sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+}
+
 async function mapWithConcurrency(items, limit, mapper) {
     const results = new Array(items.length);
     let nextIndex = 0;
@@ -150,6 +215,7 @@ async function main() {
         throw new Error('输出目录不在插件项目内，已停止。');
     }
 
+    const existingThemes = await loadExistingCatalog();
     const sourceFiles = await collectSourceFiles();
     const inspected = [];
     for (const sourceFile of sourceFiles) {
@@ -163,25 +229,55 @@ async function main() {
     }
 
     const selected = chooseCatalogEntries(inspected);
-    const themes = await mapWithConcurrency(selected, 6, async file => {
+    const selectedByName = new Map(selected.map(file => [file.themeName, file]));
+    const versionCandidates = await mapWithConcurrency(inspected, 6, async file => {
         const hash = await getPublishedHash(file.fileName, file.bytes);
-        const id = `theme-${sha256(Buffer.from(file.themeName, 'utf8')).slice(0, 16)}`;
         return {
-            id,
-            name: file.themeName,
             version: versionFromDate(file.modifiedAt),
-            description: file.status === 'test'
-                ? '当前测试中主题，可远程安装、更新和切换。'
-                : '已完成主题，可远程安装、更新和切换。',
             theme_url: remoteUrl(file.fileName, commit || 'main'),
             sha256: hash,
             minimum_client_version: minimumClientVersion,
             updated_at: file.modifiedAt.toISOString(),
+            status: file.status,
+            themeName: file.themeName,
         };
     });
 
+    const candidatesByName = new Map();
+    for (const candidate of versionCandidates) {
+        const list = candidatesByName.get(candidate.themeName) || [];
+        const { themeName, ...version } = candidate;
+        list.push(version);
+        candidatesByName.set(themeName, list);
+    }
+
+    const themesByName = new Map(existingThemes.map(theme => [theme.name, theme]));
+    for (const [themeName, candidates] of candidatesByName) {
+        const selectedFile = selectedByName.get(themeName);
+        const existing = themesByName.get(themeName);
+        const id = existing?.id || `theme-${sha256(Buffer.from(themeName, 'utf8')).slice(0, 16)}`;
+        const versions = mergeVersions(existing?.versions || [], candidates);
+        const selectedVersion = versionFromDate(selectedFile.modifiedAt);
+        const selectedCandidate = candidates.find(version => version.version === selectedVersion);
+        const latest = versions.find(version => version.version === selectedVersion)
+            || (commit && selectedCandidate ? versions.find(version => version.sha256 === selectedCandidate.sha256) : null)
+            || versions[0];
+        themesByName.set(themeName, {
+            id,
+            name: themeName,
+            description: selectedFile.status === 'test'
+                ? '当前测试中主题，可远程安装、更新和切换任意保留版本。'
+                : '已完成主题，可远程安装、更新和切换任意保留版本。',
+            ...(existing?.preview_url ? { preview_url: existing.preview_url } : {}),
+            latest_version: latest.version,
+            versions,
+        });
+    }
+
+    const themes = [...themesByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+
     const catalog = {
-        schema_version: 1,
+        schema_version: 2,
         name: 'Zeya 酒馆主题库',
         updated_at: new Date().toISOString(),
         themes,
@@ -190,12 +286,14 @@ async function main() {
     await writeFile(path.join(outputRoot, 'catalog.json'), `${JSON.stringify(catalog, null, 4)}\n`, 'utf8');
 
     const duplicateCount = inspected.length - selected.length;
+    const versionCount = themes.reduce((total, theme) => total + theme.versions.length, 0);
     console.log(JSON.stringify({
         mode: commit ? 'pinned' : 'provisional',
         commit: commit || 'main',
         uploadedFiles: inspected.length,
         catalogThemes: themes.length,
-        duplicateInternalNamesNotListed: duplicateCount,
+        catalogVersions: versionCount,
+        duplicateInternalNamesKeptAsVersions: duplicateCount,
         testFiles: inspected.filter(file => file.status === 'test').length,
         completedFiles: inspected.filter(file => file.status === 'complete').length,
     }, null, 2));

@@ -210,16 +210,43 @@ async function fetchCatalogText(url) {
     return decodeBase64Utf8(envelope.content, 'GitHub 主题目录');
 }
 
-function normalizeThemeEntry(entry, index) {
+function normalizeThemeVersion(versionEntry, theme, versionIndex) {
+    if (!versionEntry || typeof versionEntry !== 'object' || Array.isArray(versionEntry)) {
+        throw new Error(`主题“${theme.name}”的第 ${versionIndex + 1} 个版本格式无效。`);
+    }
+
+    const version = String(versionEntry.version || '').trim();
+    const themeUrl = requireTrustedUrl(versionEntry.theme_url, `主题“${theme.name}”v${version || versionIndex + 1} 地址`);
+    const sha256 = String(versionEntry.sha256 || '').trim().toLowerCase();
+
+    if (!version || version.length > 40) {
+        throw new Error(`主题“${theme.name}”的版本无效。`);
+    }
+    if (!SHA256_PATTERN.test(sha256)) {
+        throw new Error(`主题“${theme.name}”v${version} 缺少有效 SHA-256，已拒绝不受校验的安装。`);
+    }
+
+    return {
+        id: theme.id,
+        name: theme.name,
+        version,
+        themeUrl,
+        sha256,
+        description: theme.description,
+        previewUrl: theme.previewUrl,
+        minimumClientVersion: String(versionEntry.minimum_client_version || '').trim().slice(0, 40),
+        updatedAt: String(versionEntry.updated_at || '').trim().slice(0, 80),
+        status: String(versionEntry.status || '').trim().slice(0, 40),
+    };
+}
+
+function normalizeThemeEntry(entry, index, schemaVersion) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
         throw new Error(`目录中的第 ${index + 1} 个主题格式无效。`);
     }
 
     const id = String(entry.id || '').trim();
     const name = String(entry.name || '').trim();
-    const version = String(entry.version || '').trim();
-    const themeUrl = requireTrustedUrl(entry.theme_url, `主题“${name || id || index + 1}”地址`);
-    const sha256 = String(entry.sha256 || '').trim().toLowerCase();
 
     if (!/^[a-z0-9][a-z0-9._-]{0,79}$/i.test(id)) {
         throw new Error(`主题“${name || index + 1}”的 id 无效。`);
@@ -227,31 +254,39 @@ function normalizeThemeEntry(entry, index) {
     if (!name || name.length > 128) {
         throw new Error(`主题 ${id} 的名称无效。`);
     }
-    if (!version || version.length > 40) {
-        throw new Error(`主题“${name}”的版本无效。`);
-    }
-    if (!SHA256_PATTERN.test(sha256)) {
-        throw new Error(`主题“${name}”缺少有效 SHA-256，已拒绝不受校验的安装。`);
-    }
-
-    return {
+    const theme = {
         id,
         name,
-        version,
-        themeUrl,
-        sha256,
         description: String(entry.description || '').trim().slice(0, 500),
         previewUrl: entry.preview_url ? requireTrustedUrl(entry.preview_url, `主题“${name}”预览地址`) : '',
-        minimumClientVersion: String(entry.minimum_client_version || '').trim().slice(0, 40),
-        updatedAt: String(entry.updated_at || '').trim().slice(0, 80),
     };
+
+    const rawVersions = schemaVersion === 1 ? [entry] : entry.versions;
+    if (!Array.isArray(rawVersions) || rawVersions.length === 0 || rawVersions.length > 100) {
+        throw new Error(`主题“${name}”缺少有效版本列表。`);
+    }
+    const versions = rawVersions.map((versionEntry, versionIndex) => normalizeThemeVersion(versionEntry, theme, versionIndex));
+    if (new Set(versions.map(item => item.version)).size !== versions.length) {
+        throw new Error(`主题“${name}”包含重复版本号。`);
+    }
+    const latestVersion = schemaVersion === 1
+        ? versions[0].version
+        : String(entry.latest_version || versions[0].version).trim();
+    const latestIndex = versions.findIndex(item => item.version === latestVersion);
+    if (latestIndex < 0) {
+        throw new Error(`主题“${name}”的 latest_version 不在版本列表中。`);
+    }
+    const [latest] = versions.splice(latestIndex, 1);
+    versions.unshift(latest);
+
+    return { ...theme, latestVersion, versions };
 }
 
 function validateCatalog(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new Error('主题目录根节点必须是对象。');
     }
-    if (value.schema_version !== 1) {
+    if (![1, 2].includes(value.schema_version)) {
         throw new Error(`不支持的目录版本：${String(value.schema_version)}`);
     }
     if (!Array.isArray(value.themes)) {
@@ -261,7 +296,7 @@ function validateCatalog(value) {
         throw new Error('主题目录项目过多。');
     }
 
-    const themes = value.themes.map(normalizeThemeEntry);
+    const themes = value.themes.map((entry, index) => normalizeThemeEntry(entry, index, value.schema_version));
     if (new Set(themes.map(theme => theme.id)).size !== themes.length) {
         throw new Error('主题目录包含重复 id。');
     }
@@ -371,7 +406,7 @@ async function installTheme(entry, button) {
         return;
     }
 
-    const action = installed ? '更新' : '安装';
+    const action = installed ? '切换版本' : '安装';
     button.disabled = true;
     button.textContent = `${action}中…`;
 
@@ -418,7 +453,7 @@ function updateInstallButton(button, entry, installed) {
         button.classList.add('theme-subscriber-installed');
         return;
     }
-    button.textContent = '更新并切换';
+    button.textContent = '安装此版本并切换';
 }
 
 function createThemeCard(entry) {
@@ -448,22 +483,42 @@ function createThemeCard(entry) {
     title.textContent = entry.name;
     const version = document.createElement('span');
     version.className = 'theme-subscriber-version';
-    version.textContent = `v${entry.version}`;
+    version.textContent = `${entry.versions.length} 个版本`;
     heading.append(title, version);
 
     const description = document.createElement('p');
     description.textContent = entry.description || '暂无说明';
 
+    const versionRow = document.createElement('label');
+    versionRow.className = 'theme-subscriber-version-row';
+    const versionLabel = document.createElement('span');
+    versionLabel.textContent = '选择版本';
+    const versionSelect = document.createElement('select');
+    versionSelect.className = 'text_pole theme-subscriber-version-select';
+    for (const versionEntry of entry.versions) {
+        const option = document.createElement('option');
+        option.value = versionEntry.version;
+        option.textContent = `v${versionEntry.version}${versionEntry.version === entry.latestVersion ? '（最新版）' : ''}`;
+        versionSelect.append(option);
+    }
+    versionRow.append(versionLabel, versionSelect);
+
     const meta = document.createElement('small');
-    meta.textContent = `SHA-256 ${entry.sha256.slice(0, 12)}…${entry.minimumClientVersion ? ` · ST ≥ ${entry.minimumClientVersion}` : ''}`;
 
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'menu_button theme-subscriber-install';
-    updateInstallButton(button, entry, installed);
-    button.addEventListener('click', () => installTheme(entry, button));
+    let selectedVersion = entry.versions[0];
+    const refreshSelectedVersion = () => {
+        selectedVersion = entry.versions.find(item => item.version === versionSelect.value) || entry.versions[0];
+        meta.textContent = `SHA-256 ${selectedVersion.sha256.slice(0, 12)}…${selectedVersion.minimumClientVersion ? ` · ST ≥ ${selectedVersion.minimumClientVersion}` : ''}${selectedVersion.status ? ` · ${selectedVersion.status === 'test' ? '测试中' : '已完成'}` : ''}`;
+        updateInstallButton(button, selectedVersion, installed);
+    };
+    versionSelect.addEventListener('change', refreshSelectedVersion);
+    button.addEventListener('click', () => installTheme(selectedVersion, button));
+    refreshSelectedVersion();
 
-    content.append(heading, description, meta, button);
+    content.append(heading, description, versionRow, meta, button);
     card.append(content);
     return card;
 }
@@ -478,7 +533,8 @@ function renderCatalog(catalog) {
         return;
     }
 
-    status.textContent = `${catalog.name} · ${catalog.themes.length} 个主题${catalog.updatedAt ? ` · 更新于 ${catalog.updatedAt}` : ''}`;
+    const versionCount = catalog.themes.reduce((total, theme) => total + theme.versions.length, 0);
+    status.textContent = `${catalog.name} · ${catalog.themes.length} 个主题 · ${versionCount} 个版本${catalog.updatedAt ? ` · 更新于 ${catalog.updatedAt}` : ''}`;
     for (const entry of catalog.themes) {
         list.append(createThemeCard(entry));
     }
@@ -530,7 +586,7 @@ function createPanel() {
                 <input id="theme-subscriber-url" class="text_pole" type="url" inputmode="url" autocomplete="off" spellcheck="false">
                 <button id="theme-subscriber-refresh" class="menu_button" type="button">检查更新</button>
             </div>
-            <small>仅接受 GitHub、GitHub Pages 和 jsDelivr 的 HTTPS 地址；安装前必须通过 SHA-256 校验。点击主题按钮即安装或更新并自动切换，主题声明的远程字体和图片会随主题加载。</small>
+            <small>默认选择最新版，也可从主题卡片选择任意保留版本。仅接受 GitHub、GitHub Pages 和 jsDelivr 的 HTTPS 地址；安装前必须通过 SHA-256 校验。</small>
             <div id="theme-subscriber-status" class="theme-subscriber-status" aria-live="polite">尚未检查主题目录。</div>
             <div id="theme-subscriber-list" class="theme-subscriber-list"></div>
         </div>`;

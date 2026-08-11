@@ -1,18 +1,32 @@
 {
-    "schema_version": 1,
+    "schema_version": 2,
     "name": "Zeya SillyTavern Themes",
     "updated_at": "2026-08-10T00:00:00Z",
     "themes": [
         {
             "id": "example-theme",
             "name": "示例主题",
-            "version": "1.0.0",
             "description": "替换为正式主题说明。",
-            "theme_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/example-theme/theme.json",
             "preview_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/example-theme/preview.webp",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-            "minimum_client_version": "1.14.0",
-            "updated_at": "2026-08-10T00:00:00Z"
+            "latest_version": "1.1.0",
+            "versions": [
+                {
+                    "version": "1.1.0",
+                    "theme_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/2222222222222222222222222222222222222222/themes/example-theme/theme.json",
+                    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+                    "minimum_client_version": "1.14.0",
+                    "updated_at": "2026-08-10T00:00:00Z",
+                    "status": "complete"
+                },
+                {
+                    "version": "1.0.0",
+                    "theme_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/1111111111111111111111111111111111111111/themes/example-theme/theme.json",
+                    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+                    "minimum_client_version": "1.14.0",
+                    "updated_at": "2026-08-01T00:00:00Z",
+                    "status": "complete"
+                }
+            ]
         }
     ]
 }

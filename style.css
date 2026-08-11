@@ -76,6 +76,25 @@
     line-height: 1.45;
 }
 
+.theme-subscriber-version-row {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.55rem 0 0.4rem !important;
+    font-weight: 600;
+}
+
+.theme-subscriber-version-select {
+    width: 100%;
+    min-width: 0;
+}
+
+.theme-subscriber-version-row + small {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
 .theme-subscriber-install {
     margin-top: 0.65rem;
 }

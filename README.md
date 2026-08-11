@@ -1,13 +1,13 @@
 # SillyTavern 主题订阅器
 
 作者：Zeya  
-当前版本：0.2.1  
+当前版本：0.3.0
 最低 SillyTavern 版本：1.14.0
 
 ## 功能
 
 - 从受信任的 GitHub、GitHub Pages 或 jsDelivr HTTPS 地址读取主题目录。
-- 在 SillyTavern 扩展设置中显示主题、版本、说明和预览图。
+- 在 SillyTavern 扩展设置中显示主题、全部保留版本、说明和预览图，默认选择最新版。
 - 安装或更新前校验目录声明的 SHA-256。
 - 点击一次即可安装或更新主题、自动刷新并切换。
 - 主题包含的远程图片、字体和 `@import` 会随主题加载，并在控制台留下资源提示。
@@ -40,8 +40,9 @@ SillyTavern/data/default-user/extensions/theme-subscriber/
 
 1. 填写远程 `catalog.json` 地址。
 2. 点击“检查更新”。
-3. 点击目标主题的“安装并切换”“更新并切换”或“切换”。
-4. 新安装或更新时酒馆会自动刷新并启用目标主题，无需手动导入文件。
+3. 默认直接使用最新版；如需旧版，先在主题卡片里选择版本。
+4. 点击“安装并切换”“安装此版本并切换”或“切换”。
+5. 新安装或更换版本时酒馆会自动刷新并启用目标主题，无需手动导入文件。
 
 默认目录地址为：
 
@@ -49,7 +50,7 @@ SillyTavern/data/default-user/extensions/theme-subscriber/
 https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json?ref=main
 ```
 
-当前目录已经发布33个主题 JSON，插件展示32个内部名称唯一的可安装主题。
+当前目录已经发布33个主题 JSON，插件按内部名称归为32个主题，并在每个主题内展示全部保留版本。
 目录通过 GitHub Contents API 始终读取 `main` 最新版本；每个主题文件仍使用固定提交地址和 SHA-256，避免缓存或更新过程中的内容错配。
 
 ## 常用操作
@@ -57,7 +58,8 @@ https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%
 - 第一次使用：打开“扩展 → GitHub 主题订阅器”，点击“检查更新”。
 - 首次安装：点击“安装并切换”，插件校验并保存主题后自动刷新和启用。
 - 已安装主题：点击“切换”即可直接启用。
-- 远程主题有新版本：按钮会显示“更新并切换”。
+- 远程主题有新版本：版本下拉默认选中最新版，按钮会显示“安装此版本并切换”。
+- 使用历史版本：选择旧版本后点击“安装此版本并切换”；想回到新版时重新选择带“最新版”标记的版本。
 - 更换主题库：在“主题目录地址”中填写另一个受信任的 GitHub、GitHub Pages 或 jsDelivr HTTPS 目录。
 
 ## 更新插件
@@ -71,7 +73,7 @@ https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%
 - 检查更新失败：确认设备能够访问 `api.github.com`，稍后重试；插件不会因此修改现有主题。
 - 安装时提示 SHA-256 不一致：远程文件与目录版本不同，插件会主动停止，不要绕过校验。
 - 安装完成但没有切换：刷新一次酒馆，再从原生主题列表选择目标主题。
-- 同名主题：SillyTavern 按主题内部 `name` 保存；在线目录只展示每个内部名称的最新版本。
+- 同名主题：SillyTavern 按主题内部 `name` 保存；在线目录把同一内部名称的文件归到一个主题卡片，并保留为多个可选版本。
 
 ## 隐私与安全
 
@@ -82,15 +84,14 @@ https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%
 
 ## 目录格式
 
-参考 `catalog.example.json`。正式目录中的每个主题都必须提供：
+参考 `catalog.example.json`。正式目录使用 schema v2，每个主题都必须提供：
 
 - 稳定且唯一的 `id`
 - 与主题 JSON 内 `name` 完全一致的 `name`
-- `version`
-- `theme_url`
-- 对主题 JSON 原始字节计算得到的 `sha256`
+- 指向默认最新版的 `latest_version`
+- `versions` 数组；每个版本包含 `version`、`theme_url`、对主题 JSON 原始字节计算得到的 `sha256`
 
-更新主题时更改 `version`、`sha256` 和远程文件即可。订阅器以 SHA-256 判断是否有更新，不会只相信版本文字。
+更新主题时追加版本记录并调整 `latest_version`。订阅器仍兼容旧的 schema v1 单版本目录，并以 SHA-256 判断实际内容，不会只相信版本文字。
 
 ## 当前证据状态
 
@@ -98,4 +99,4 @@ JavaScript、JSON、在线目录、主题名称与 SHA-256 已做静态检查；
 
 ## 维护者同步
 
-`scripts/build-online-catalog.mjs` 用于把维护者本机的 `C:\1234` 完成品和 `C:\aaaa` 测试主题合并为在线目录。测试目录中的同名文件优先；所有 JSON 都上传，但内部名称重复时目录只展示优先级更高、更新时间更晚的一个。
+`scripts/build-online-catalog.mjs` 用于把维护者本机的 `C:\1234` 完成品和 `C:\aaaa` 测试主题合并为在线目录。测试目录中的同名文件优先作为最新版；所有 JSON 都上传，旧目录中的固定提交链接会继续保留，内部名称重复的文件归入同一主题的历史版本列表。
