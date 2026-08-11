@@ -1,5 +1,5 @@
 {
-    "schema_version": 2,
+    "schema_version": 3,
     "name": "Zeya SillyTavern Themes",
     "updated_at": "2026-08-10T00:00:00Z",
     "themes": [
@@ -21,7 +21,8 @@
                     "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
                     "minimum_client_version": "1.14.0",
                     "updated_at": "2026-08-10T00:00:00Z",
-                    "status": "complete"
+                    "status": "test",
+                    "approved": false
                 },
                 {
                     "version": "1.0.0",
@@ -31,7 +32,8 @@
                     "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
                     "minimum_client_version": "1.14.0",
                     "updated_at": "2026-08-01T00:00:00Z",
-                    "status": "complete"
+                    "status": "complete",
+                    "approved": true
                 }
             ]
         }

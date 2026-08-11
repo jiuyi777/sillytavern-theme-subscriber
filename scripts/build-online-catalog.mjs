@@ -189,7 +189,7 @@ async function loadExistingCatalog() {
         return [];
     }
     return parsed.themes.map(theme => {
-        const versions = parsed.schema_version === 2 && Array.isArray(theme.versions)
+        const versions = parsed.schema_version >= 2 && Array.isArray(theme.versions)
             ? theme.versions
             : [{
                 version: theme.version,
@@ -207,7 +207,14 @@ async function loadExistingCatalog() {
             appearance: theme.appearance === 'light' ? 'light' : 'dark',
             latest_version: theme.latest_version || versions[0]?.version || '',
             default_version: theme.default_version || theme.latest_version || versions[0]?.version || '',
-            versions: versions.filter(version => version?.version && version?.theme_url && version?.sha256),
+            versions: versions
+                .filter(version => version?.version && version?.theme_url && version?.sha256)
+                .map(version => ({
+                    ...version,
+                    approved: Object.hasOwn(version, 'approved')
+                        ? version.approved === true
+                        : version.status === 'complete' || version.version === theme.default_version,
+                })),
         };
     }).filter(theme => theme.id && theme.name && theme.versions.length);
 }
@@ -291,6 +298,9 @@ async function main() {
             minimum_client_version: minimumClientVersion,
             updated_at: file.modifiedAt.toISOString(),
             status: file.status,
+            approved: Object.hasOwn(versionMetadata, 'approved')
+                ? versionMetadata.approved === true
+                : file.status === 'complete',
             sourceFile: file.fileName,
             appearance: themeMetadata.appearance || file.appearance,
             themeName: file.themeName,
@@ -322,7 +332,10 @@ async function main() {
         const defaultCandidate = themeMetadata.default_source_file
             ? versions.find(version => version.source_file === themeMetadata.default_source_file)
             : null;
-        const defaultVersion = defaultCandidate?.version || latest.version;
+        const approvedVersions = versions.filter(version => version.approved === true);
+        const defaultVersion = defaultCandidate?.approved === true
+            ? defaultCandidate.version
+            : approvedVersions[0]?.version || latest.version;
         themesByName.set(themeName, {
             id,
             name: themeName,
@@ -341,7 +354,7 @@ async function main() {
     const themes = [...themesByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 
     const catalog = {
-        schema_version: 2,
+        schema_version: 3,
         name: 'Zeya 酒馆主题库',
         updated_at: new Date().toISOString(),
         themes,
@@ -351,12 +364,18 @@ async function main() {
 
     const duplicateCount = inspected.length - selected.length;
     const versionCount = themes.reduce((total, theme) => total + theme.versions.length, 0);
+    const approvedVersionCount = themes.reduce(
+        (total, theme) => total + theme.versions.filter(version => version.approved === true).length,
+        0,
+    );
     console.log(JSON.stringify({
         mode: commit ? 'pinned' : 'provisional',
         commit: commit || 'main',
         uploadedFiles: inspected.length,
         catalogThemes: themes.length,
         catalogVersions: versionCount,
+        approvedVersions: approvedVersionCount,
+        collapsedVersions: versionCount - approvedVersionCount,
         lightThemes: themes.filter(theme => theme.appearance === 'light').length,
         darkThemes: themes.filter(theme => theme.appearance === 'dark').length,
         duplicateInternalNamesKeptAsVersions: duplicateCount,

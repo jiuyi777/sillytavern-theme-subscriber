@@ -256,6 +256,9 @@ function normalizeThemeVersion(versionEntry, theme, versionIndex) {
         minimumClientVersion: String(versionEntry.minimum_client_version || '').trim().slice(0, 40),
         updatedAt: String(versionEntry.updated_at || '').trim().slice(0, 80),
         status: String(versionEntry.status || '').trim().slice(0, 40),
+        approved: Object.hasOwn(versionEntry, 'approved')
+            ? versionEntry.approved === true
+            : versionEntry.status === 'complete',
     };
 }
 
@@ -286,7 +289,13 @@ function normalizeThemeEntry(entry, index, schemaVersion) {
     if (!Array.isArray(rawVersions) || rawVersions.length === 0 || rawVersions.length > 100) {
         throw new Error(`主题“${name}”缺少有效版本列表。`);
     }
-    const versions = rawVersions.map((versionEntry, versionIndex) => normalizeThemeVersion(versionEntry, theme, versionIndex));
+    const versions = rawVersions.map((versionEntry, versionIndex) => normalizeThemeVersion(
+        schemaVersion === 1 && !Object.hasOwn(versionEntry, 'approved')
+            ? { ...versionEntry, approved: true }
+            : versionEntry,
+        theme,
+        versionIndex,
+    ));
     if (new Set(versions.map(item => item.version)).size !== versions.length) {
         throw new Error(`主题“${name}”包含重复版本号。`);
     }
@@ -297,13 +306,18 @@ function normalizeThemeEntry(entry, index, schemaVersion) {
     if (latestIndex < 0) {
         throw new Error(`主题“${name}”的 latest_version 不在版本列表中。`);
     }
-    const defaultVersion = schemaVersion === 1
+    const requestedDefaultVersion = schemaVersion === 1
         ? latestVersion
         : String(entry.default_version || latestVersion).trim();
-    const defaultIndex = versions.findIndex(item => item.version === defaultVersion);
-    if (defaultIndex < 0) {
+    const requestedDefaultIndex = versions.findIndex(item => item.version === requestedDefaultVersion);
+    if (requestedDefaultIndex < 0) {
         throw new Error(`主题“${name}”的 default_version 不在版本列表中。`);
     }
+    const approvedVersions = versions.filter(item => item.approved);
+    const defaultVersion = approvedVersions.some(item => item.version === requestedDefaultVersion)
+        ? requestedDefaultVersion
+        : approvedVersions[0]?.version || requestedDefaultVersion;
+    const defaultIndex = versions.findIndex(item => item.version === defaultVersion);
     const [defaultEntry] = versions.splice(defaultIndex, 1);
     versions.unshift(defaultEntry);
 
@@ -314,7 +328,7 @@ function validateCatalog(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new Error('主题目录根节点必须是对象。');
     }
-    if (![1, 2].includes(value.schema_version)) {
+    if (![1, 2, 3].includes(value.schema_version)) {
         throw new Error(`不支持的目录版本：${String(value.schema_version)}`);
     }
     if (!Array.isArray(value.themes)) {
@@ -486,6 +500,55 @@ function updateInstallButton(button, entry, installed) {
     button.textContent = '安装此版本并切换';
 }
 
+function createVersionControls(entry, versions, installed, labelText) {
+    const controls = document.createElement('div');
+    controls.className = 'theme-subscriber-version-controls';
+
+    const versionRow = document.createElement('label');
+    versionRow.className = 'theme-subscriber-version-row';
+    const versionLabel = document.createElement('span');
+    versionLabel.textContent = labelText;
+    const versionSelect = document.createElement('select');
+    versionSelect.className = 'text_pole theme-subscriber-version-select';
+    for (const versionEntry of versions) {
+        const option = document.createElement('option');
+        option.value = versionEntry.version;
+        const markers = [];
+        if (versionEntry.approved) markers.push('已批准');
+        if (versionEntry.version === entry.defaultVersion) markers.push('推荐');
+        if (versionEntry.version === entry.latestVersion) markers.push('最新');
+        option.textContent = `${versionEntry.versionName}${markers.length ? ` · ${markers.join(' / ')}` : ''}`;
+        versionSelect.append(option);
+    }
+    versionRow.append(versionLabel, versionSelect);
+
+    const changelog = document.createElement('p');
+    changelog.className = 'theme-subscriber-changelog';
+    const meta = document.createElement('small');
+    meta.className = 'theme-subscriber-meta';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'menu_button theme-subscriber-install';
+    let selectedVersion = versions[0];
+    const refreshSelectedVersion = () => {
+        selectedVersion = versions.find(item => item.version === versionSelect.value) || versions[0];
+        changelog.textContent = `更新记录：${selectedVersion.changelog}`;
+        const approvalLabel = selectedVersion.approved ? '已批准展示' : '其他版本';
+        const statusLabel = selectedVersion.status
+            ? ` · ${selectedVersion.status === 'test' ? '测试中' : '已完成'}`
+            : '';
+        meta.textContent = `${selectedVersion.versionName} · ${approvalLabel} · SHA-256 ${selectedVersion.sha256.slice(0, 10)}…${statusLabel}`;
+        updateInstallButton(button, selectedVersion, installed);
+    };
+    versionSelect.addEventListener('change', refreshSelectedVersion);
+    button.addEventListener('click', () => installTheme(selectedVersion, button));
+    refreshSelectedVersion();
+
+    controls.append(versionRow, changelog, meta, button);
+    return controls;
+}
+
 function createThemeCard(entry, toneIndex) {
     const settings = getSettings();
     const installed = settings.installed[entry.id];
@@ -526,49 +589,32 @@ function createThemeCard(entry, toneIndex) {
     title.textContent = entry.displayName;
     const version = document.createElement('span');
     version.className = 'theme-subscriber-version';
-    version.textContent = `${entry.versions.length} 个版本`;
+    const approvedVersions = entry.versions.filter(item => item.approved);
+    const otherVersions = entry.versions.filter(item => !item.approved);
+    version.textContent = `${approvedVersions.length} 个已展示 · ${otherVersions.length} 个已收起`;
     heading.append(title, version);
 
     const description = document.createElement('p');
     description.textContent = entry.description || '暂无说明';
 
-    const versionRow = document.createElement('label');
-    versionRow.className = 'theme-subscriber-version-row';
-    const versionLabel = document.createElement('span');
-    versionLabel.textContent = '选择版本';
-    const versionSelect = document.createElement('select');
-    versionSelect.className = 'text_pole theme-subscriber-version-select';
-    for (const versionEntry of entry.versions) {
-        const option = document.createElement('option');
-        option.value = versionEntry.version;
-        const markers = [];
-        if (versionEntry.version === entry.defaultVersion) markers.push('推荐');
-        if (versionEntry.version === entry.latestVersion) markers.push('最新');
-        option.textContent = `${versionEntry.versionName}${markers.length ? ` · ${markers.join(' / ')}` : ''}`;
-        versionSelect.append(option);
+    content.append(heading, description);
+    if (approvedVersions.length) {
+        content.append(createVersionControls(entry, approvedVersions, installed, '展示版本'));
+    } else {
+        const emptyApproved = document.createElement('p');
+        emptyApproved.className = 'theme-subscriber-no-approved';
+        emptyApproved.textContent = '暂无你已批准的展示版本；其他版本仍保留在下方。';
+        content.append(emptyApproved);
     }
-    versionRow.append(versionLabel, versionSelect);
 
-    const changelog = document.createElement('p');
-    changelog.className = 'theme-subscriber-changelog';
-    const meta = document.createElement('small');
-    meta.className = 'theme-subscriber-meta';
-
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'menu_button theme-subscriber-install';
-    let selectedVersion = entry.versions[0];
-    const refreshSelectedVersion = () => {
-        selectedVersion = entry.versions.find(item => item.version === versionSelect.value) || entry.versions[0];
-        changelog.textContent = `更新记录：${selectedVersion.changelog}`;
-        meta.textContent = `${selectedVersion.versionName} · SHA-256 ${selectedVersion.sha256.slice(0, 10)}…${selectedVersion.status ? ` · ${selectedVersion.status === 'test' ? '测试中' : '已完成'}` : ''}`;
-        updateInstallButton(button, selectedVersion, installed);
-    };
-    versionSelect.addEventListener('change', refreshSelectedVersion);
-    button.addEventListener('click', () => installTheme(selectedVersion, button));
-    refreshSelectedVersion();
-
-    content.append(heading, description, versionRow, changelog, meta, button);
+    if (otherVersions.length) {
+        const details = document.createElement('details');
+        details.className = 'theme-subscriber-other-versions';
+        const summary = document.createElement('summary');
+        summary.textContent = `其他版本（${otherVersions.length}）`;
+        details.append(summary, createVersionControls(entry, otherVersions, installed, '选择其他版本'));
+        content.append(details);
+    }
     card.append(content);
     return card;
 }
@@ -586,10 +632,14 @@ function renderCatalog(catalog) {
     }
 
     const versionCount = catalog.themes.reduce((total, theme) => total + theme.versions.length, 0);
+    const approvedVersionCount = catalog.themes.reduce(
+        (total, theme) => total + theme.versions.filter(version => version.approved).length,
+        0,
+    );
     const updatedText = catalog.updatedAt
         ? new Date(catalog.updatedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '刚刚';
-    status.textContent = `${catalog.themes.length} 个主题 · ${versionCount} 个版本 · ${updatedText} 同步`;
+    status.textContent = `${catalog.themes.length} 个主题 · ${approvedVersionCount} 个已展示 · ${versionCount - approvedVersionCount} 个已收起 · ${updatedText} 同步`;
 
     const groups = [
         { appearance: 'light', label: '日间主题' },
