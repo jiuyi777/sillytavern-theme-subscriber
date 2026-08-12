@@ -1,5 +1,9 @@
 {
     "themes": {
+        "烟水渡": {
+            "withdrawn": true,
+            "withdrawal_reason": "当前测试版本可能导致界面无法操作，等待修复并重新获得用户批准。"
+        },
         "春来": {
             "appearance": "light",
             "versions": {

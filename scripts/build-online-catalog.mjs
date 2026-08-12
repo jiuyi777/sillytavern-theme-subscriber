@@ -387,11 +387,18 @@ async function main() {
         candidatesByName.set(themeName, list);
     }
 
-    const themesByName = new Map(existingThemes.map(theme => [theme.name, theme]));
+    const themesByName = new Map(existingThemes
+        .filter(theme => metadata.themes?.[theme.name]?.withdrawn !== true)
+        .map(theme => [theme.name, theme]));
     for (const [themeName, candidates] of candidatesByName) {
         const selectedFile = selectedByName.get(themeName);
         const existing = themesByName.get(themeName);
         const themeMetadata = metadata.themes?.[themeName] || {};
+        if (themeMetadata.withdrawn === true) {
+            console.warn(`主题已撤回，跳过目录发布：${themeName}`);
+            themesByName.delete(themeName);
+            continue;
+        }
         const id = existing?.id || `theme-${sha256(Buffer.from(themeName, 'utf8')).slice(0, 16)}`;
         const versions = addDefaultVersionMetadata(mergeVersions(existing?.versions || [], candidates));
         const selectedCandidate = candidates.find(version => version.source_file === selectedFile.fileName) || candidates[0];
