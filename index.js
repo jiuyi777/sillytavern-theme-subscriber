@@ -1,6 +1,8 @@
 const EXTENSION_KEY = 'theme_subscriber';
 const PANEL_ID = 'theme-subscriber-panel';
 const PENDING_THEME_KEY = 'theme-subscriber:pending-theme';
+const RECOVERY_HOST_ID = 'theme-subscriber-recovery-host';
+const RECOVERY_SHORTCUT_KEY = 'r';
 const LEGACY_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/catalog.json';
 const MUTABLE_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
 const PREVIOUS_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e8f96b7ab7795e1a731c6775a68c9fe82edda135/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
@@ -67,6 +69,8 @@ const DEFAULT_SETTINGS = Object.freeze({
     catalogUrl: DEFAULT_CATALOG_URL,
     installed: {},
     lastCheckedAt: '',
+    previousTheme: '',
+    lastBrokenTheme: '',
 });
 
 function clone(value) {
@@ -91,6 +95,12 @@ function getSettings() {
     }
     if (typeof settings.lastCheckedAt !== 'string') {
         settings.lastCheckedAt = '';
+    }
+    if (typeof settings.previousTheme !== 'string') {
+        settings.previousTheme = '';
+    }
+    if (typeof settings.lastBrokenTheme !== 'string') {
+        settings.lastBrokenTheme = '';
     }
     return settings;
 }
@@ -413,7 +423,201 @@ function activateExistingTheme(name) {
     return true;
 }
 
+function getCurrentThemeName() {
+    const configured = String(ctx.powerUserSettings?.theme || '').trim();
+    const select = document.getElementById('themes');
+    return configured || (select instanceof HTMLSelectElement ? String(select.value || '').trim() : '');
+}
+
+function getAvailableThemeNames() {
+    const select = document.getElementById('themes');
+    if (!(select instanceof HTMLSelectElement)) {
+        return [];
+    }
+    return Array.from(select.options).map(option => String(option.value || '').trim()).filter(Boolean);
+}
+
+function rememberPreviousTheme(nextTheme) {
+    const currentTheme = getCurrentThemeName();
+    if (!currentTheme || currentTheme === nextTheme) {
+        return;
+    }
+    const settings = getSettings();
+    settings.previousTheme = currentTheme;
+    settings.lastBrokenTheme = '';
+    ctx.saveSettingsDebounced();
+}
+
+function getRecoveryTarget(currentTheme = getCurrentThemeName()) {
+    const settings = getSettings();
+    const available = getAvailableThemeNames();
+    if (settings.previousTheme && settings.previousTheme !== currentTheme && available.includes(settings.previousTheme)) {
+        return settings.previousTheme;
+    }
+    return available.find(name => name !== currentTheme) || '';
+}
+
+function switchThemeImmediately(name) {
+    if (!name) {
+        throw new Error('没有找到可以返回的其他主题。');
+    }
+    const select = document.getElementById('themes');
+    if (!(select instanceof HTMLSelectElement) || !Array.from(select.options).some(option => option.value === name)) {
+        throw new Error(`上一个主题“${name}”目前不在酒馆主题列表中。`);
+    }
+    ctx.powerUserSettings.theme = name;
+    ctx.saveSettingsDebounced();
+    select.value = name;
+    $(select).trigger('change');
+}
+
+async function recoverPreviousTheme() {
+    const currentTheme = getCurrentThemeName();
+    const targetTheme = getRecoveryTarget(currentTheme);
+    if (!targetTheme) {
+        notify('error', '没有找到其他可用主题，无法自动返回。');
+        return;
+    }
+    try {
+        const settings = getSettings();
+        settings.lastBrokenTheme = currentTheme;
+        settings.previousTheme = targetTheme;
+        switchThemeImmediately(targetTheme);
+        notify('success', `正在强制返回“${targetTheme}”。`);
+        setTimeout(() => window.location.reload(), 250);
+    } catch (error) {
+        console.error('[主题订阅器] 强制返回失败', error);
+        notify('error', error?.message || String(error));
+    }
+}
+
+async function deleteThemeByName(name) {
+    const response = await fetch('/api/themes/delete', {
+        method: 'POST',
+        headers: ctx.getRequestHeaders(),
+        body: JSON.stringify({ name }),
+    });
+    if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(`删除主题失败：HTTP ${response.status}${detail ? ` · ${detail}` : ''}`);
+    }
+    const select = document.getElementById('themes');
+    if (select instanceof HTMLSelectElement) {
+        for (const option of Array.from(select.options)) {
+            if (option.value === name) option.remove();
+        }
+    }
+    const settings = getSettings();
+    for (const [id, installed] of Object.entries(settings.installed)) {
+        if (installed?.name === name) delete settings.installed[id];
+    }
+    if (settings.lastBrokenTheme === name) settings.lastBrokenTheme = '';
+    ctx.saveSettingsDebounced();
+}
+
+async function deleteCurrentBrokenTheme() {
+    const currentTheme = getCurrentThemeName();
+    const targetTheme = getRecoveryTarget(currentTheme);
+    if (!currentTheme) {
+        notify('error', '当前没有可删除的主题。');
+        return;
+    }
+    if (!targetTheme) {
+        notify('error', '没有其他可用主题，不能安全删除当前主题。');
+        return;
+    }
+    if (!window.confirm(`确定删除当前主题“${currentTheme}”吗？\n会先强制切换到“${targetTheme}”，再删除本地主题文件。`)) {
+        return;
+    }
+    try {
+        switchThemeImmediately(targetTheme);
+        await deleteThemeByName(currentTheme);
+        notify('success', `已删除坏主题“${currentTheme}”，正在返回“${targetTheme}”。`);
+        setTimeout(() => window.location.reload(), 250);
+    } catch (error) {
+        console.error('[主题订阅器] 删除坏主题失败', error);
+        notify('error', error?.message || String(error));
+    }
+}
+
+function applyRecoveryHostStyles(host) {
+    const styles = {
+        all: 'initial',
+        display: 'block',
+        visibility: 'visible',
+        opacity: '1',
+        position: 'fixed',
+        inset: 'auto max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) auto',
+        width: 'auto',
+        height: 'auto',
+        margin: '0',
+        padding: '0',
+        transform: 'none',
+        filter: 'none',
+        pointerEvents: 'auto',
+        zIndex: '2147483647',
+        colorScheme: 'light',
+    };
+    for (const [property, value] of Object.entries(styles)) {
+        host.style.setProperty(property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`), value, 'important');
+    }
+}
+
+function ensureRecoveryControls() {
+    if (!document.documentElement) {
+        return null;
+    }
+    let host = document.getElementById(RECOVERY_HOST_ID);
+    if (!host) {
+        host = document.createElement('div');
+        host.id = RECOVERY_HOST_ID;
+        host.setAttribute('aria-label', '主题紧急救援');
+        const shadow = host.attachShadow({ mode: 'closed' });
+        const style = document.createElement('style');
+        style.textContent = `
+            :host { all: initial !important; }
+            .recovery { display: flex !important; align-items: stretch !important; gap: 6px !important; font-family: system-ui, sans-serif !important; }
+            button { all: unset !important; box-sizing: border-box !important; min-height: 46px !important; border: 2px solid #fff !important; border-radius: 999px !important; padding: 0 15px !important; color: #fff !important; background: #a51d32 !important; box-shadow: 0 3px 14px rgba(0,0,0,.45) !important; cursor: pointer !important; pointer-events: auto !important; font: 700 14px/1 system-ui,sans-serif !important; touch-action: manipulation !important; user-select: none !important; }
+            button:focus-visible { outline: 3px solid #ffd166 !important; outline-offset: 2px !important; }
+            .delete { width: 46px !important; padding: 0 !important; text-align: center !important; background: #343434 !important; }
+        `;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'recovery';
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.textContent = '↩ 返回上个主题';
+        back.title = '紧急返回上一个可用主题（Ctrl+Alt+Shift+R）';
+        back.addEventListener('click', recoverPreviousTheme);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'delete';
+        remove.textContent = '删';
+        remove.title = '先返回上个主题，再删除当前坏主题';
+        remove.setAttribute('aria-label', '删除当前坏主题');
+        remove.addEventListener('click', deleteCurrentBrokenTheme);
+        wrapper.append(back, remove);
+        shadow.append(style, wrapper);
+        document.documentElement.append(host);
+    }
+    if (host.parentElement !== document.documentElement || document.documentElement.lastElementChild !== host) {
+        document.documentElement.append(host);
+    }
+    applyRecoveryHostStyles(host);
+    return host;
+}
+
+function installRecoveryShortcut() {
+    window.addEventListener('keydown', event => {
+        if (event.ctrlKey && event.altKey && event.shiftKey && event.key.toLowerCase() === RECOVERY_SHORTCUT_KEY) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            void recoverPreviousTheme();
+        }
+    }, true);
+}
+
 function scheduleThemeActivation(name) {
+    rememberPreviousTheme(name);
     ctx.powerUserSettings.theme = name;
     ctx.saveSettingsDebounced();
     try {
@@ -441,8 +645,11 @@ function resumePendingThemeActivation() {
 async function installTheme(entry, button) {
     const settings = getSettings();
     const installed = settings.installed[entry.id];
-    if (installed?.sha256 === entry.sha256 && activateExistingTheme(entry.themeName)) {
-        return;
+    if (installed?.sha256 === entry.sha256) {
+        rememberPreviousTheme(entry.themeName);
+        if (activateExistingTheme(entry.themeName)) {
+            return;
+        }
     }
 
     button.disabled = true;
@@ -741,6 +948,7 @@ function createPanel() {
 }
 
 function initialize() {
+    ensureRecoveryControls();
     if (document.getElementById(PANEL_ID)) {
         return;
     }
@@ -764,6 +972,10 @@ function initialize() {
     resumePendingThemeActivation();
     void loadCatalog();
 }
+
+installRecoveryShortcut();
+ensureRecoveryControls();
+setInterval(ensureRecoveryControls, 1500);
 
 if (eventTypes?.APP_READY) {
     ctx.eventSource.on(eventTypes.APP_READY, initialize);

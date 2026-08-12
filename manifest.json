@@ -4,8 +4,8 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Zeya",
-    "version": "0.5.0",
-    "description": "日间与黑夜主题商店，正式版公开推荐，测试版折叠保留，支持版本记录和一键安装切换。",
+    "version": "0.6.0",
+    "description": "主题商店，正式版公开、测试版折叠，并提供始终可用的上个主题救援与坏主题删除入口。",
     "minimum_client_version": "1.14.0",
     "homePage": "https://github.com/jiuyi777/sillytavern-theme-subscriber",
     "auto_update": true
