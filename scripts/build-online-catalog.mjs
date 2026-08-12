@@ -175,6 +175,41 @@ function chooseCatalogEntries(files) {
     return [...byThemeName.values()].sort((a, b) => a.themeName.localeCompare(b.themeName, 'zh-CN'));
 }
 
+function normalizeVersionIds(inputVersions) {
+    const aliases = new Map();
+    const usedRelease = new Set(inputVersions.filter(version => version.approved && /^0\.\d+$/.test(String(version.version))).map(version => String(version.version)));
+    const usedTest = new Set(inputVersions.filter(version => !version.approved && /^test-0\.\d+$/.test(String(version.version))).map(version => String(version.version)));
+    let releaseMinor = Math.max(0, ...[...usedRelease].map(version => Number(version.split('.')[1])));
+    let testMinor = Math.max(0, ...[...usedTest].map(version => Number(version.split('.')[1])));
+    const byAge = [...inputVersions].sort((a, b) => String(a.updated_at || '').localeCompare(String(b.updated_at || '')));
+    const replacements = new Map();
+    for (const version of byAge) {
+        const current = String(version.version || '');
+        const expectedPattern = version.approved ? /^0\.\d+$/ : /^test-0\.\d+$/;
+        if (expectedPattern.test(current)) {
+            continue;
+        }
+        let replacement;
+        if (version.approved) {
+            do { releaseMinor += 1; replacement = `0.${releaseMinor}`; } while (usedRelease.has(replacement));
+            usedRelease.add(replacement);
+        } else {
+            do { testMinor += 1; replacement = `test-0.${testMinor}`; } while (usedTest.has(replacement));
+            usedTest.add(replacement);
+        }
+        aliases.set(current, replacement);
+        replacements.set(current, {
+            ...version,
+            version: replacement,
+            version_name: version.approved ? `正式版 V${replacement}` : `测试版 ${replacement.replace(/^test-/, '')}`,
+        });
+    }
+    return {
+        aliases,
+        versions: inputVersions.map(version => replacements.get(String(version.version || '')) || version),
+    };
+}
+
 async function loadExistingCatalog() {
     let parsed;
     try {
@@ -213,16 +248,19 @@ async function loadExistingCatalog() {
                 minimum_client_version: theme.minimum_client_version,
                 updated_at: theme.updated_at,
             }];
-        const versions = rawVersions.filter(version => version?.version && version?.theme_url && version?.sha256).map(version => ({
+        const normalized = rawVersions.filter(version => version?.version && version?.theme_url && version?.sha256).map(version => ({
             ...version,
             approved: parsed.schema_version >= 3
                 ? version.approved === true
                 : parsed.schema_version === 1 || String(version.status || '') === 'complete',
         }));
-        const requestedDefault = String(theme.default_version || '').trim();
+        const normalizedIds = normalizeVersionIds(normalized);
+        const versions = normalizedIds.versions;
+        const requestedDefault = normalizedIds.aliases.get(String(theme.default_version || '').trim()) || String(theme.default_version || '').trim();
         const defaultVersion = versions.find(version => version.version === requestedDefault && version.approved)?.version
             || versions.find(version => version.approved)?.version
             || '';
+        const requestedLatest = normalizedIds.aliases.get(String(theme.latest_version || '').trim()) || String(theme.latest_version || '').trim();
         return {
             id: theme.id,
             name: theme.name,
@@ -230,7 +268,7 @@ async function loadExistingCatalog() {
             description: theme.description || '',
             preview_url: theme.preview_url || undefined,
             appearance: theme.appearance === 'light' ? 'light' : 'dark',
-            latest_version: theme.latest_version || versions[0]?.version || '',
+            latest_version: requestedLatest || versions[0]?.version || '',
             default_version: defaultVersion,
             versions,
         };
