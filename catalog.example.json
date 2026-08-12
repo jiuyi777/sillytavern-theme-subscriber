@@ -1,5 +1,5 @@
 {
-    "schema_version": 2,
+    "schema_version": 3,
     "name": "Zeya SillyTavern Themes",
     "updated_at": "2026-08-10T00:00:00Z",
     "themes": [
@@ -10,28 +10,30 @@
             "description": "替换为正式主题说明。",
             "preview_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/example-theme/preview.webp",
             "appearance": "light",
-            "latest_version": "1.1.0",
-            "default_version": "1.0.0",
+            "latest_version": "test-0.2",
+            "default_version": "0.1",
             "versions": [
                 {
-                    "version": "1.1.0",
-                    "version_name": "加了毛玻璃",
+                    "version": "test-0.2",
+                    "version_name": "测试版 0.2",
                     "changelog": "消息区域增加半透明毛玻璃效果。",
                     "theme_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/2222222222222222222222222222222222222222/themes/example-theme/theme.json",
                     "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
                     "minimum_client_version": "1.14.0",
                     "updated_at": "2026-08-10T00:00:00Z",
-                    "status": "complete"
+                    "status": "test",
+                    "approved": false
                 },
                 {
-                    "version": "1.0.0",
-                    "version_name": "初始版本",
+                    "version": "0.1",
+                    "version_name": "正式版 V0.1",
                     "changelog": "首次发布版本。",
                     "theme_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/1111111111111111111111111111111111111111/themes/example-theme/theme.json",
                     "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
                     "minimum_client_version": "1.14.0",
                     "updated_at": "2026-08-01T00:00:00Z",
-                    "status": "complete"
+                    "status": "release",
+                    "approved": true
                 }
             ]
         }

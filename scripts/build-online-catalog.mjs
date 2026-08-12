@@ -14,6 +14,15 @@ const metadataPath = path.join(projectRoot, 'catalog-metadata.json');
 const gitCache = path.join(path.dirname(projectRoot), '.asset-publish');
 const commitArgIndex = process.argv.indexOf('--commit');
 const commit = commitArgIndex >= 0 ? String(process.argv[commitArgIndex + 1] || '').trim() : '';
+const argumentValue = name => {
+    const index = process.argv.indexOf(name);
+    return index >= 0 ? String(process.argv[index + 1] || '').trim() : '';
+};
+const sourceArgument = argumentValue('--source');
+const descriptionArgument = argumentValue('--description');
+const versionNameArgument = argumentValue('--version-name');
+const changelogArgument = argumentValue('--changelog');
+const migrateExisting = process.argv.includes('--migrate-existing');
 
 if (commit && !/^[0-9a-f]{40}$/i.test(commit)) {
     throw new Error('--commit 必须是 40 位 Git 提交哈希。');
@@ -64,19 +73,25 @@ function inferAppearance(theme) {
 }
 
 async function collectSourceFiles() {
-    const byFileName = new Map();
-    for (const source of sources) {
-        const entries = await readdir(source.directory, { withFileTypes: true });
-        for (const entry of entries) {
-            if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== '.json') {
-                continue;
-            }
-            const fullPath = path.join(source.directory, entry.name);
-            const fileStat = await stat(fullPath);
-            byFileName.set(entry.name, { ...source, fileName: entry.name, fullPath, modifiedAt: fileStat.mtime });
+    if (sourceArgument) {
+        const fullPath = path.resolve(sourceArgument);
+        const source = sources.find(candidate => path.dirname(fullPath).toLowerCase() === candidate.directory.toLowerCase());
+        if (!source) {
+            throw new Error('--source 必须是 C:\\aaaa 或 C:\\1234 中的单个 JSON。');
         }
+        if (path.extname(fullPath).toLowerCase() !== '.json') {
+            throw new Error('--source 只接受 JSON。');
+        }
+        const fileStat = await stat(fullPath);
+        if (!fileStat.isFile()) {
+            throw new Error('--source 不是文件。');
+        }
+        return [{ ...source, fileName: path.basename(fullPath), fullPath, modifiedAt: fileStat.mtime }];
     }
-    return [...byFileName.values()].sort((a, b) => a.fileName.localeCompare(b.fileName, 'zh-CN'));
+    if (migrateExisting) {
+        return [];
+    }
+    throw new Error('必须使用 --source 指定当前一个主题版本；禁止为单次发布扫描全部主题。');
 }
 
 async function inspectTheme(file) {
@@ -189,7 +204,7 @@ async function loadExistingCatalog() {
         return [];
     }
     return parsed.themes.map(theme => {
-        const versions = parsed.schema_version === 2 && Array.isArray(theme.versions)
+        const rawVersions = parsed.schema_version >= 2 && Array.isArray(theme.versions)
             ? theme.versions
             : [{
                 version: theme.version,
@@ -198,6 +213,16 @@ async function loadExistingCatalog() {
                 minimum_client_version: theme.minimum_client_version,
                 updated_at: theme.updated_at,
             }];
+        const versions = rawVersions.filter(version => version?.version && version?.theme_url && version?.sha256).map(version => ({
+            ...version,
+            approved: parsed.schema_version >= 3
+                ? version.approved === true
+                : parsed.schema_version === 1 || String(version.status || '') === 'complete',
+        }));
+        const requestedDefault = String(theme.default_version || '').trim();
+        const defaultVersion = versions.find(version => version.version === requestedDefault && version.approved)?.version
+            || versions.find(version => version.approved)?.version
+            || '';
         return {
             id: theme.id,
             name: theme.name,
@@ -206,8 +231,8 @@ async function loadExistingCatalog() {
             preview_url: theme.preview_url || undefined,
             appearance: theme.appearance === 'light' ? 'light' : 'dark',
             latest_version: theme.latest_version || versions[0]?.version || '',
-            default_version: theme.default_version || theme.latest_version || versions[0]?.version || '',
-            versions: versions.filter(version => version?.version && version?.theme_url && version?.sha256),
+            default_version: defaultVersion,
+            versions,
         };
     }).filter(theme => theme.id && theme.name && theme.versions.length);
 }
@@ -222,6 +247,18 @@ function addDefaultVersionMetadata(versions) {
             changelog: String(version.changelog || (position === 0 ? '首次收录到在线主题库。' : '同步主题文件更新。')).slice(0, 300),
         };
     });
+}
+
+function nextVersion(existingVersions, approved) {
+    const pattern = approved ? /^(\d+)\.(\d+)$/ : /^test-(\d+)\.(\d+)$/;
+    let highestMinor = 0;
+    for (const version of existingVersions) {
+        const match = String(version.version || '').match(pattern);
+        if (match && Number(match[1]) === 0) {
+            highestMinor = Math.max(highestMinor, Number(match[2]));
+        }
+    }
+    return `${approved ? '' : 'test-'}0.${highestMinor + 1}`;
 }
 
 function mergeVersions(existingVersions, candidates) {
@@ -281,16 +318,21 @@ async function main() {
         const hash = await getPublishedHash(file.fileName, file.bytes);
         const themeMetadata = metadata.themes?.[file.themeName] || {};
         const versionMetadata = themeMetadata.versions?.[file.fileName] || {};
+        const existingTheme = existingThemes.find(theme => theme.name === file.themeName);
+        const approved = versionMetadata.approved === true || (versionMetadata.approved !== false && file.status === 'complete');
+        const existingVersion = existingTheme?.versions.find(version => version.sha256 === hash && version.approved === approved);
+        const version = existingVersion?.version || nextVersion(existingTheme?.versions || [], approved);
         return {
-            version: versionFromDate(file.modifiedAt),
-            version_name: String(versionMetadata.name || '').trim(),
-            changelog: String(versionMetadata.changelog || '').trim(),
+            version,
+            version_name: String(versionNameArgument || versionMetadata.name || (approved ? `正式版 V${version}` : `测试版 ${version.replace(/^test-/, '')}`)).trim(),
+            changelog: String(changelogArgument || versionMetadata.changelog || (approved ? '首次正式公开版本。' : '同步当前测试阶段版本，等待用户确认。')).trim(),
             theme_url: remoteUrl(file.fileName, commit || 'main'),
             theme_name: file.themeName,
             sha256: hash,
             minimum_client_version: minimumClientVersion,
             updated_at: file.modifiedAt.toISOString(),
-            status: file.status,
+            status: approved ? 'release' : 'test',
+            approved,
             sourceFile: file.fileName,
             appearance: themeMetadata.appearance || file.appearance,
             themeName: file.themeName,
@@ -314,22 +356,21 @@ async function main() {
         const themeMetadata = metadata.themes?.[themeName] || {};
         const id = existing?.id || `theme-${sha256(Buffer.from(themeName, 'utf8')).slice(0, 16)}`;
         const versions = addDefaultVersionMetadata(mergeVersions(existing?.versions || [], candidates));
-        const selectedVersion = versionFromDate(selectedFile.modifiedAt);
-        const selectedCandidate = candidates.find(version => version.version === selectedVersion);
-        const latest = versions.find(version => version.version === selectedVersion)
-            || (commit && selectedCandidate ? versions.find(version => version.sha256 === selectedCandidate.sha256) : null)
-            || versions[0];
+        const selectedCandidate = candidates.find(version => version.source_file === selectedFile.fileName) || candidates[0];
+        const latest = versions.find(version => version.sha256 === selectedCandidate?.sha256) || versions[0];
         const defaultCandidate = themeMetadata.default_source_file
             ? versions.find(version => version.source_file === themeMetadata.default_source_file)
             : null;
-        const defaultVersion = defaultCandidate?.version || latest.version;
+        const approvedVersions = versions.filter(version => version.approved === true);
+        const defaultVersion = (defaultCandidate?.approved ? defaultCandidate.version : null)
+            || (existing?.default_version && approvedVersions.find(version => version.version === existing.default_version)?.version)
+            || approvedVersions[0]?.version
+            || '';
         themesByName.set(themeName, {
             id,
             name: themeName,
             display_name: String(themeMetadata.display_name || existing?.display_name || themeName).slice(0, 128),
-            description: selectedFile.status === 'test'
-                ? '当前测试中主题，可远程安装、更新和切换任意保留版本。'
-                : '已完成主题，可远程安装、更新和切换任意保留版本。',
+            description: String(descriptionArgument || themeMetadata.description || existing?.description || `${themeName} 的 SillyTavern 界面主题。`).slice(0, 500),
             ...(existing?.preview_url ? { preview_url: existing.preview_url } : {}),
             appearance: themeMetadata.appearance || candidates[0]?.appearance || existing?.appearance || 'dark',
             latest_version: latest.version,
@@ -341,7 +382,7 @@ async function main() {
     const themes = [...themesByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 
     const catalog = {
-        schema_version: 2,
+        schema_version: 3,
         name: 'Zeya 酒馆主题库',
         updated_at: new Date().toISOString(),
         themes,
@@ -362,6 +403,8 @@ async function main() {
         duplicateInternalNamesKeptAsVersions: duplicateCount,
         testFiles: inspected.filter(file => file.status === 'test').length,
         completedFiles: inspected.filter(file => file.status === 'complete').length,
+        approvedVersions: themes.reduce((total, theme) => total + theme.versions.filter(version => version.approved === true).length, 0),
+        hiddenVersions: themes.reduce((total, theme) => total + theme.versions.filter(version => version.approved !== true).length, 0),
     }, null, 2));
 }
 

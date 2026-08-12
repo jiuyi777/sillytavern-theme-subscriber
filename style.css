@@ -196,6 +196,41 @@
     opacity: 0.72;
 }
 
+.theme-subscriber-other-versions,
+.theme-subscriber-testing-library {
+    margin-top: 0.75rem;
+    border: 1px solid var(--ts-line);
+    border-radius: 12px;
+    background: var(--ts-surface-soft);
+}
+
+.theme-subscriber-other-versions > summary,
+.theme-subscriber-testing-library > summary {
+    padding: 0.7rem 0.8rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.theme-subscriber-other-versions[open] > summary,
+.theme-subscriber-testing-library[open] > summary {
+    border-bottom: 1px solid var(--ts-line);
+}
+
+.theme-subscriber-other-versions > .theme-subscriber-version-controls {
+    padding: 0.75rem;
+}
+
+.theme-subscriber-testing-library {
+    grid-column: 1 / -1;
+}
+
+.theme-subscriber-testing-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+    gap: 0.8rem;
+    padding: 0.8rem;
+}
+
 .theme-subscriber-card-content > p:not(.theme-subscriber-changelog) {
     margin: 0.4rem 0 0.75rem;
     line-height: 1.45;
