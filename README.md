@@ -54,11 +54,11 @@ SillyTavern/data/default-user/extensions/theme-subscriber/
 默认目录地址为：
 
 ```text
-https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json?ref=main
+https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json
 ```
 
 目录会保留全部上传版本；主题卡片的默认区域只展示用户明确批准的正式版，测试版不会因为更新时间更新就自动公开。
-目录通过 GitHub Contents API 始终读取 `main` 最新版本；每个主题文件仍使用固定提交地址和 SHA-256，避免缓存或更新过程中的内容错配。
+目录通过无需登录、没有 GitHub API 匿名配额的 Raw 地址读取 `main` 最新版本；Raw 请求失败时自动尝试 jsDelivr。每个主题文件仍使用固定提交地址和 SHA-256，避免缓存或更新过程中的内容错配。旧版保存的 GitHub Contents API 地址会自动迁移到 Raw。
 
 ## 常用操作
 
@@ -78,7 +78,7 @@ https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%
 ## 常见问题
 
 - 看不到插件：确认目录内直接存在 `manifest.json`，不要多套一层文件夹，然后刷新酒馆。
-- 检查更新失败：确认设备能够访问 `api.github.com`，稍后重试；插件不会因此修改现有主题。
+- 检查更新失败：确认设备能够访问 `raw.githubusercontent.com` 或 `cdn.jsdelivr.net`，稍后重试；插件不会因此修改现有主题。
 - 安装时提示 SHA-256 不一致：远程文件与目录版本不同，插件会主动停止，不要绕过校验。
 - 安装完成但没有切换：刷新一次酒馆，再从原生主题列表选择目标主题。
 - 某个主题让页面按钮点不动：如果此前已开启保护，点击魔棒里的 `✦ 返回上个主题`；电脑上魔棒也无法展开时按 `Ctrl+Alt+Shift+R`。返回后到订阅器设置点击“删除刚才的坏主题”并确认。

@@ -5,10 +5,11 @@ const RECOVERY_MENU_CONTAINER_ID = 'theme-subscriber-recovery-wand-container';
 const RECOVERY_MENU_ITEM_ID = 'theme-subscriber-recovery-wand-item';
 const RECOVERY_SHORTCUT_KEY = 'r';
 const LEGACY_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/catalog.json';
-const MUTABLE_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
+const RAW_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
 const PREVIOUS_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e8f96b7ab7795e1a731c6775a68c9fe82edda135/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
 const PINNED_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/0f5107ad7851b767197eeb65ccf8a219350ac5da/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
-const DEFAULT_CATALOG_URL = 'https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json?ref=main';
+const API_CATALOG_URL = 'https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json?ref=main';
+const DEFAULT_CATALOG_URL = RAW_CATALOG_URL;
 const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
 const MAX_CATALOG_RESPONSE_BYTES = Math.ceil(MAX_CATALOG_BYTES * 4 / 3) + 64 * 1024;
 const MAX_THEME_BYTES = 8 * 1024 * 1024;
@@ -86,8 +87,9 @@ function getSettings() {
 
     const settings = ctx.extensionSettings[EXTENSION_KEY];
     if (typeof settings.catalogUrl !== 'string'
+        || !settings.catalogUrl.trim()
         || settings.catalogUrl === LEGACY_CATALOG_URL
-        || settings.catalogUrl === MUTABLE_CATALOG_URL
+        || settings.catalogUrl === API_CATALOG_URL
         || settings.catalogUrl === PREVIOUS_CATALOG_URL
         || settings.catalogUrl === PINNED_CATALOG_URL) {
         settings.catalogUrl = DEFAULT_CATALOG_URL;
@@ -963,7 +965,7 @@ function createPanel() {
                 <div class="theme-subscriber-url-row">
                     <input id="theme-subscriber-url" class="text_pole" type="url" inputmode="url" autocomplete="off" spellcheck="false">
                 </div>
-                <small>安装前会校验 SHA-256；GitHub 下载缓慢时会自动重试并尝试备用地址。</small>
+                <small>目录默认从 GitHub Raw 读取，并自动尝试 jsDelivr 备用地址；安装前仍会校验 SHA-256。</small>
             </details>
         </div>`;
 

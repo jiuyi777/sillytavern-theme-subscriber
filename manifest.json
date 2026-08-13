@@ -4,8 +4,8 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Zeya",
-    "version": "0.7.0",
-    "description": "主题商店，正式版公开、测试版折叠，并提供可选的魔棒返回保护与坏主题清理入口。",
+    "version": "0.7.1",
+    "description": "主题商店，使用免登录目录拉取，并提供可选的魔棒返回保护与坏主题清理入口。",
     "minimum_client_version": "1.14.0",
     "homePage": "https://github.com/jiuyi777/sillytavern-theme-subscriber",
     "auto_update": true
