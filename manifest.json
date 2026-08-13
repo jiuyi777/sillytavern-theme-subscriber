@@ -1,11 +1,11 @@
 {
-    "display_name": "主题订阅器",
+    "display_name": "酒疫主题器",
     "loading_order": 20,
     "js": "index.js",
     "css": "style.css",
-    "author": "Zeya",
-    "version": "0.7.1",
-    "description": "主题商店，使用免登录目录拉取，并提供可选的魔棒返回保护与坏主题清理入口。",
+    "author": "jiuyi",
+    "version": "0.8.0",
+    "description": "酒疫主题器：清晰区分日间与夜间、展示主题身份标识，并提供玩家反馈与可选返回保护。",
     "minimum_client_version": "1.14.0",
     "homePage": "https://github.com/jiuyi777/sillytavern-theme-subscriber",
     "auto_update": true

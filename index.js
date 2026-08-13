@@ -4,6 +4,7 @@ const PENDING_THEME_KEY = 'theme-subscriber:pending-theme';
 const RECOVERY_MENU_CONTAINER_ID = 'theme-subscriber-recovery-wand-container';
 const RECOVERY_MENU_ITEM_ID = 'theme-subscriber-recovery-wand-item';
 const RECOVERY_SHORTCUT_KEY = 'r';
+const FEEDBACK_ISSUE_URL = 'https://github.com/jiuyi777/sillytavern-theme-subscriber/issues/new';
 const LEGACY_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/catalog.json';
 const RAW_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
 const PREVIOUS_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e8f96b7ab7795e1a731c6775a68c9fe82edda135/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
@@ -66,6 +67,7 @@ const TRUSTED_HOSTS = new Set([
 
 const ctx = SillyTavern.getContext();
 const eventTypes = ctx.eventTypes || ctx.event_types;
+let feedbackThemeNames = [];
 
 const DEFAULT_SETTINGS = Object.freeze({
     catalogUrl: DEFAULT_CATALOG_URL,
@@ -112,12 +114,92 @@ function getSettings() {
     return settings;
 }
 
-function notify(kind, message, title = '主题订阅器') {
+function notify(kind, message, title = '酒疫主题器') {
     const handler = window.toastr?.[kind];
     if (typeof handler === 'function') {
         handler(message, title);
     } else {
         console[kind === 'error' ? 'error' : 'log'](`[${title}] ${message}`);
+    }
+}
+
+function updateFeedbackThemeOptions(query = '') {
+    const select = document.getElementById('theme-subscriber-feedback-theme');
+    if (!(select instanceof HTMLSelectElement)) {
+        return;
+    }
+    const previous = select.value;
+    const normalizedQuery = String(query || '').trim().toLocaleLowerCase('zh-CN');
+    const names = feedbackThemeNames.filter(name => !normalizedQuery || name.toLocaleLowerCase('zh-CN').includes(normalizedQuery));
+    select.replaceChildren();
+    const general = document.createElement('option');
+    general.value = '酒疫主题器（通用功能）';
+    general.textContent = '酒疫主题器（通用功能）';
+    select.append(general);
+    for (const name of names) {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.append(option);
+    }
+    if (Array.from(select.options).some(option => option.value === previous)) {
+        select.value = previous;
+    }
+}
+
+function setFeedbackThemes(themes) {
+    feedbackThemeNames = [...new Set(themes.map(theme => theme.displayName).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    const search = document.getElementById('theme-subscriber-feedback-search');
+    updateFeedbackThemeOptions(search instanceof HTMLInputElement ? search.value : '');
+}
+
+async function submitPlayerFeedback() {
+    const theme = document.getElementById('theme-subscriber-feedback-theme');
+    const type = document.getElementById('theme-subscriber-feedback-type');
+    const device = document.getElementById('theme-subscriber-feedback-device');
+    const message = document.getElementById('theme-subscriber-feedback-message');
+    if (!(theme instanceof HTMLSelectElement)
+        || !(type instanceof HTMLSelectElement)
+        || !(device instanceof HTMLInputElement)
+        || !(message instanceof HTMLTextAreaElement)) {
+        return;
+    }
+    const feedback = message.value.trim();
+    if (!feedback) {
+        notify('warning', '请先填写希望增加的功能或需要反馈的问题。');
+        message.focus();
+        return;
+    }
+    const body = [
+        `### 主题`,
+        theme.value,
+        '',
+        '### 反馈类型',
+        type.value,
+        '',
+        '### 希望增加或修改的内容',
+        feedback,
+        '',
+        '### 设备 / SillyTavern 版本（可选）',
+        device.value.trim() || '未填写',
+        '',
+        '> 请勿在反馈中粘贴聊天内容、API 密钥、Cookie 或其他私人信息。',
+    ].join('\n');
+    try {
+        await navigator.clipboard?.writeText(body);
+    } catch (error) {
+        console.warn('[酒疫主题器] 无法自动复制反馈内容。', error);
+    }
+    const url = new URL(FEEDBACK_ISSUE_URL);
+    url.searchParams.set('title', `[玩家反馈][${type.value}] ${theme.value}`);
+    url.searchParams.set('body', body);
+    const opened = window.open(url.toString(), '_blank');
+    if (opened) {
+        opened.opener = null;
+        notify('success', '已打开反馈提交页；确认内容后点击 GitHub 的提交按钮。');
+    } else {
+        notify('warning', '浏览器阻止了新页面；反馈内容已尝试复制，请手动打开项目反馈页。');
     }
 }
 
@@ -301,6 +383,8 @@ function normalizeThemeEntry(entry, index, schemaVersion) {
         displayName: String(entry.display_name || name).trim().slice(0, 128),
         appearance: entry.appearance === 'light' ? 'light' : 'dark',
         description: String(entry.description || '').trim().slice(0, 500),
+        logoUrl: entry.logo_url ? requireTrustedUrl(entry.logo_url, `主题“${name}”标识地址`) : '',
+        logoAlt: String(entry.logo_alt || `${name}主题标识`).trim().slice(0, 160),
         previewUrl: entry.preview_url ? requireTrustedUrl(entry.preview_url, `主题“${name}”预览地址`) : '',
     };
 
@@ -493,7 +577,7 @@ async function recoverPreviousTheme() {
         notify('success', `正在强制返回“${targetTheme}”。`);
         setTimeout(() => window.location.reload(), 250);
     } catch (error) {
-        console.error('[主题订阅器] 强制返回失败', error);
+        console.error('[酒疫主题器] 强制返回失败', error);
         notify('error', error?.message || String(error));
     }
 }
@@ -562,7 +646,7 @@ async function deleteRecordedBrokenTheme() {
             setTimeout(() => window.location.reload(), 250);
         }
     } catch (error) {
-        console.error('[主题订阅器] 删除坏主题失败', error);
+        console.error('[酒疫主题器] 删除坏主题失败', error);
         notify('error', error?.message || String(error));
     }
 }
@@ -637,7 +721,7 @@ function scheduleThemeActivation(name) {
     try {
         sessionStorage.setItem(PENDING_THEME_KEY, name);
     } catch (error) {
-        console.warn('[主题订阅器] 无法写入页面切换标记，将依靠酒馆设置切换主题。', error);
+        console.warn('[酒疫主题器] 无法写入页面切换标记，将依靠酒馆设置切换主题。', error);
     }
     notify('success', `主题“${name}”已保存，正在自动刷新并切换。`);
     setTimeout(() => window.location.reload(), 1200);
@@ -649,7 +733,7 @@ function resumePendingThemeActivation() {
         name = sessionStorage.getItem(PENDING_THEME_KEY) || '';
         sessionStorage.removeItem(PENDING_THEME_KEY);
     } catch (error) {
-        console.warn('[主题订阅器] 无法读取页面切换标记。', error);
+        console.warn('[酒疫主题器] 无法读取页面切换标记。', error);
     }
     if (name && !activateExistingTheme(name)) {
         notify('warning', `“${name}”已安装，但暂未出现在主题列表中，请再刷新一次。`);
@@ -680,7 +764,7 @@ async function installTheme(entry, button) {
         const theme = validateTheme(parseJson(resource.text, `主题“${entry.name}”`), entry.themeName);
         const warnings = getThemeWarnings(theme);
         if (warnings.length) {
-            console.info(`[主题订阅器] “${entry.name}”资源提示：${warnings.join(' ')}`);
+            console.info(`[酒疫主题器] “${entry.name}”资源提示：${warnings.join(' ')}`);
         }
 
         button.textContent = '正在保存…';
@@ -696,7 +780,7 @@ async function installTheme(entry, button) {
         ctx.saveSettingsDebounced();
         scheduleThemeActivation(entry.themeName);
     } catch (error) {
-        console.error('[主题订阅器] 安装失败', error);
+        console.error('[酒疫主题器] 安装失败', error);
         notify('error', error?.message || String(error));
         updateInstallButton(button, entry, installed);
     } finally {
@@ -763,7 +847,18 @@ function createVersionControls(entry, versions, installed, label) {
     return wrapper;
 }
 
-function createThemeCard(entry, toneIndex, options = {}) {
+function createThemeIdentityFallback(entry) {
+    const fallback = document.createElement('div');
+    fallback.className = 'theme-subscriber-identity-fallback';
+    const mark = document.createElement('strong');
+    mark.textContent = Array.from(entry.displayName).slice(0, 2).join('');
+    const note = document.createElement('small');
+    note.textContent = '主题标识生成中';
+    fallback.append(mark, note);
+    return fallback;
+}
+
+function createThemeCard(entry, options = {}) {
     const settings = getSettings();
     const installed = settings.installed[entry.id];
     const approvedVersions = entry.versions.filter(item => item.approved);
@@ -772,28 +867,25 @@ function createThemeCard(entry, toneIndex, options = {}) {
     const card = document.createElement('article');
     card.className = 'theme-subscriber-card';
     card.dataset.appearance = entry.appearance;
-    card.dataset.tone = String(toneIndex % 5);
 
     const preview = document.createElement('div');
     preview.className = 'theme-subscriber-preview-shell';
-    if (entry.previewUrl) {
+    const visualUrl = entry.logoUrl || entry.previewUrl;
+    if (visualUrl) {
         const image = document.createElement('img');
-        image.className = 'theme-subscriber-preview';
-        image.src = entry.previewUrl;
-        image.alt = `${entry.displayName}主题预览`;
+        image.className = entry.logoUrl ? 'theme-subscriber-logo' : 'theme-subscriber-preview';
+        image.src = visualUrl;
+        image.alt = entry.logoUrl ? entry.logoAlt : `${entry.displayName}主题截图`;
         image.loading = 'lazy';
         image.referrerPolicy = 'no-referrer';
+        image.addEventListener('error', () => image.replaceWith(createThemeIdentityFallback(entry)), { once: true });
         preview.append(image);
     } else {
-        const mockWindow = document.createElement('div');
-        mockWindow.className = 'theme-subscriber-preview-window';
-        mockWindow.setAttribute('aria-hidden', 'true');
-        mockWindow.innerHTML = '<span></span><span></span><span></span>';
-        preview.append(mockWindow);
+        preview.append(createThemeIdentityFallback(entry));
     }
     const appearanceLabel = document.createElement('span');
     appearanceLabel.className = 'theme-subscriber-appearance-badge';
-    appearanceLabel.textContent = entry.appearance === 'light' ? '日间' : '黑夜';
+    appearanceLabel.textContent = entry.appearance === 'light' ? '☀ 日间主题' : '☾ 夜间主题';
     preview.append(appearanceLabel);
     card.append(preview);
 
@@ -838,6 +930,7 @@ function renderCatalog(catalog) {
     const tabs = document.getElementById('theme-subscriber-tabs');
     list.replaceChildren();
     tabs.replaceChildren();
+    setFeedbackThemes(catalog.themes);
 
     if (catalog.themes.length === 0) {
         status.textContent = `${catalog.name}：当前没有已发布主题。`;
@@ -853,14 +946,24 @@ function renderCatalog(catalog) {
     status.textContent = `${approvedThemes.length} 个公开主题 · ${approvedVersionCount} 个正式版本 · ${hiddenVersionCount} 个隐藏测试版本 · ${updatedText} 同步`;
 
     const groups = [
-        { appearance: 'light', label: '日间主题' },
-        { appearance: 'dark', label: '黑夜主题' },
+        { appearance: 'light', icon: '☀', label: '日间主题', description: '浅色背景与深色正文为主要阅读关系' },
+        { appearance: 'dark', icon: '☾', label: '夜间主题', description: '深色背景与浅色正文为主要阅读关系' },
     ];
     const renderGroup = appearance => {
+        const group = groups.find(item => item.appearance === appearance);
         const entries = approvedThemes.filter(theme => theme.appearance === appearance);
         const testingOnlyEntries = catalog.themes.filter(theme => theme.appearance === appearance && !theme.versions.some(version => version.approved));
         list.replaceChildren();
-        entries.forEach((entry, index) => list.append(createThemeCard(entry, index)));
+        const heading = document.createElement('div');
+        heading.className = 'theme-subscriber-group-heading';
+        heading.dataset.appearance = appearance;
+        const headingTitle = document.createElement('strong');
+        headingTitle.textContent = `${group.icon} ${group.label}`;
+        const headingDescription = document.createElement('span');
+        headingDescription.textContent = group.description;
+        heading.append(headingTitle, headingDescription);
+        list.append(heading);
+        entries.forEach(entry => list.append(createThemeCard(entry)));
         if (testingOnlyEntries.length > 0) {
             const testing = document.createElement('details');
             testing.className = 'theme-subscriber-testing-library';
@@ -868,7 +971,7 @@ function renderCatalog(catalog) {
             summary.textContent = `测试主题（${testingOnlyEntries.length}）`;
             const testingList = document.createElement('div');
             testingList.className = 'theme-subscriber-testing-list';
-            testingOnlyEntries.forEach((entry, index) => testingList.append(createThemeCard(entry, entries.length + index, { showOnlyUnapproved: true })));
+            testingOnlyEntries.forEach(entry => testingList.append(createThemeCard(entry, { showOnlyUnapproved: true })));
             testing.append(summary, testingList);
             list.append(testing);
         }
@@ -879,13 +982,13 @@ function renderCatalog(catalog) {
         }
     };
     for (const group of groups) {
-        const count = approvedThemes.filter(theme => theme.appearance === group.appearance).length;
+        const count = catalog.themes.filter(theme => theme.appearance === group.appearance).length;
         const tab = document.createElement('button');
         tab.type = 'button';
         tab.className = 'theme-subscriber-tab';
         tab.dataset.appearance = group.appearance;
         tab.setAttribute('role', 'tab');
-        tab.textContent = `${group.label} ${count}`;
+        tab.textContent = `${group.icon} ${group.label} · ${count}`;
         tab.addEventListener('click', () => renderGroup(group.appearance));
         tabs.append(tab);
     }
@@ -910,7 +1013,7 @@ async function loadCatalog() {
         ctx.saveSettingsDebounced();
         renderCatalog(catalog);
     } catch (error) {
-        console.error('[主题订阅器] 目录加载失败', error);
+        console.error('[酒疫主题器] 目录加载失败', error);
         status.textContent = error?.message || String(error);
         document.getElementById('theme-subscriber-list').replaceChildren();
         notify('error', status.textContent);
@@ -929,14 +1032,14 @@ function createPanel() {
     drawer.className = 'inline-drawer';
     drawer.innerHTML = `
         <div class="inline-drawer-toggle inline-drawer-header">
-            <b>主题订阅器</b>
+            <b>酒疫主题器</b>
             <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content">
             <div class="theme-subscriber-hero">
                 <div>
                     <small class="theme-subscriber-eyebrow">THEME LIBRARY</small>
-                    <h3>我的主题库</h3>
+                    <h3>酒疫主题库</h3>
                     <p>远程安装、保留版本、随时切换</p>
                 </div>
                 <button id="theme-subscriber-refresh" class="menu_button theme-subscriber-refresh" type="button">
@@ -959,6 +1062,30 @@ function createPanel() {
                 <button id="theme-subscriber-delete-broken" class="menu_button" type="button" disabled>删除刚才的坏主题</button>
                 <small id="theme-subscriber-broken-theme-name">返回后会在这里记录刚才的坏主题。</small>
             </section>
+            <details class="theme-subscriber-feedback">
+                <summary>玩家反馈与功能建议</summary>
+                <div class="theme-subscriber-feedback-form">
+                    <label for="theme-subscriber-feedback-search">搜索主题</label>
+                    <input id="theme-subscriber-feedback-search" class="text_pole" type="search" placeholder="输入主题名筛选">
+                    <label for="theme-subscriber-feedback-theme">选择主题</label>
+                    <select id="theme-subscriber-feedback-theme" class="text_pole">
+                        <option value="酒疫主题器（通用功能）">酒疫主题器（通用功能）</option>
+                    </select>
+                    <label for="theme-subscriber-feedback-type">反馈类型</label>
+                    <select id="theme-subscriber-feedback-type" class="text_pole">
+                        <option value="功能建议">功能建议</option>
+                        <option value="主题显示问题">主题显示问题</option>
+                        <option value="希望增加日间或夜间模式">希望增加日间或夜间模式</option>
+                        <option value="其他反馈">其他反馈</option>
+                    </select>
+                    <label for="theme-subscriber-feedback-message">希望增加或修改什么</label>
+                    <textarea id="theme-subscriber-feedback-message" class="text_pole" rows="5" maxlength="3000" placeholder="例如：希望这个主题增加夜间模式；希望手机版按钮更大。"></textarea>
+                    <label for="theme-subscriber-feedback-device">设备 / SillyTavern版本（可选）</label>
+                    <input id="theme-subscriber-feedback-device" class="text_pole" type="text" maxlength="120" placeholder="例如：安卓手机，SillyTavern 1.14">
+                    <button id="theme-subscriber-feedback-submit" class="menu_button" type="button">生成反馈并打开提交页</button>
+                    <small>反馈会先生成并复制，再打开公开 GitHub 提交页；玩家确认后才真正发送。不要填写聊天内容、密钥或私人信息。</small>
+                </div>
+            </details>
             <details class="theme-subscriber-connection">
                 <summary>主题库连接设置</summary>
                 <label for="theme-subscriber-url">主题目录地址</label>
@@ -980,7 +1107,7 @@ function initialize() {
     }
     const container = document.getElementById('extensions_settings2');
     if (!container) {
-        console.error('[主题订阅器] 找不到扩展设置容器。');
+        console.error('[酒疫主题器] 找不到扩展设置容器。');
         return;
     }
 
@@ -1004,6 +1131,11 @@ function initialize() {
     });
     document.getElementById('theme-subscriber-delete-broken').addEventListener('click', deleteRecordedBrokenTheme);
     updateBrokenThemeDeleteButton();
+    document.getElementById('theme-subscriber-feedback-search').addEventListener('input', event => {
+        updateFeedbackThemeOptions(event.currentTarget.value);
+    });
+    document.getElementById('theme-subscriber-feedback-submit').addEventListener('click', () => void submitPlayerFeedback());
+    updateFeedbackThemeOptions();
     document.getElementById('theme-subscriber-refresh').addEventListener('click', loadCatalog);
     resumePendingThemeActivation();
     void loadCatalog();
@@ -1019,4 +1151,4 @@ if (eventTypes?.APP_READY) {
     $(initialize);
 }
 
-console.log('[主题订阅器] 扩展脚本已加载');
+console.log('[酒疫主题器] 扩展脚本已加载');

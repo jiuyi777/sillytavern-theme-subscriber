@@ -1,13 +1,15 @@
-# SillyTavern 主题订阅器
+# 酒疫主题器
 
-作者：Zeya  
-当前版本：0.6.0
+作者：jiuyi
+当前版本：0.8.0
 最低 SillyTavern 版本：1.14.0
 
 ## 功能
 
 - 从受信任的 GitHub、GitHub Pages 或 jsDelivr HTTPS 地址读取主题目录。
-- 在 SillyTavern 扩展设置中显示用户已批准的正式主题、说明和预览图，默认选择推荐版本。
+- 明确分开“☀ 日间主题”和“☾ 夜间主题”，不再用随机色卡或假窗口冒充主题预览。
+- 主题卡优先显示依据该主题真实色调、代表物和视觉语言生成的身份 Logo；有真实截图时可作为次级回退。
+- 提供可搜索主题的玩家反馈区，可选择主题与反馈类型，填写希望增加的模式、功能或修正内容，再打开公开反馈单确认提交。
 - 每次测试版本都保留在 GitHub；未批准版本默认收进关闭的“其他版本”或“测试主题”，不会冒充正式推荐。
 - 发现会阻断操作的坏主题时可以在维护目录中标记 `withdrawn`；它会从玩家目录完全移除，但固定提交历史继续保留，修复并重新批准后才能恢复。
 - 主题按日间与黑夜分组，版本显示可读名称、正式/测试状态、推荐标记和简短更新记录。
@@ -41,7 +43,7 @@ https://github.com/jiuyi777/sillytavern-theme-subscriber
 SillyTavern/data/default-user/extensions/theme-subscriber/
 ```
 
-然后重启或刷新 SillyTavern。在“扩展”设置中打开“GitHub 主题订阅器”。
+然后重启或刷新 SillyTavern。在“扩展”设置中打开“酒疫主题器”。
 
 ## 使用
 
@@ -62,7 +64,7 @@ https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/
 
 ## 常用操作
 
-- 第一次使用：打开“扩展 → GitHub 主题订阅器”，点击“检查更新”。
+- 第一次使用：打开“扩展 → 酒疫主题器”，点击“检查更新”。
 - 需要防呆保护：在订阅器设置中勾选“在魔棒中显示返回入口”，之后可从输入区魔棒菜单点击 `✦ 返回上个主题`。
 - 首次安装：点击“安装并切换”，插件校验并保存主题后自动刷新和启用。
 - 已安装主题：点击“切换”即可直接启用。
@@ -99,6 +101,7 @@ https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/
 - 稳定且唯一的 `id`
 - 与主题 JSON 内 `name` 完全一致的 `name`
 - `appearance`：`light` 或 `dark`
+- 推荐提供 `logo_url`、`logo_alt`、`logo_palette`、`logo_subject` 和 `logo_effect`；Logo 必须来自当前主题真实设计证据，不得使用随机色卡
 - `latest_version` 与只允许指向已批准版本的 `default_version`；没有正式版时后者为空字符串
 - `versions` 数组；每个版本包含 `version`、`version_name`、`changelog`、`theme_url`、`status`、`approved` 和对主题 JSON 原始字节计算得到的 `sha256`
 
@@ -110,4 +113,4 @@ JavaScript、JSON、在线目录、主题名称与 SHA-256 已做静态检查；
 
 ## 维护者同步
 
-`scripts/build-online-catalog.mjs --source <当前JSON>` 每次只处理当前一个主题版本，不扫描其他主题。`C:\aaaa` 来源写为隐藏测试版，`C:\1234` 来源写为用户已批准正式版；旧版本、固定提交链接和 SHA-256 全部继续保留。
+`scripts/build-online-catalog.mjs --source <当前JSON>` 每次只处理当前一个主题版本，不扫描其他主题。`C:\aaaa` 来源写为隐藏测试版，`C:\1234` 来源写为用户已批准正式版；旧版本、固定提交链接、身份 Logo 和 SHA-256 全部继续保留。

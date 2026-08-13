@@ -58,6 +58,12 @@ function parseRgb(value) {
     return functional ? functional.slice(1, 4).map(Number) : null;
 }
 
+function normalizeLogoPalette(value) {
+    if (!Array.isArray(value)) return [];
+    return [...new Set(value.map(item => String(item || '').trim().toLowerCase())
+        .filter(item => /^#[0-9a-f]{6}$/.test(item)))].slice(0, 5);
+}
+
 function inferAppearance(theme) {
     const rgb = parseRgb(theme.blur_tint_color) || parseRgb(theme.chat_tint_color);
     if (rgb) {
@@ -266,6 +272,11 @@ async function loadExistingCatalog() {
             name: theme.name,
             display_name: theme.display_name || theme.name,
             description: theme.description || '',
+            logo_url: theme.logo_url || undefined,
+            logo_alt: theme.logo_alt || undefined,
+            logo_palette: normalizeLogoPalette(theme.logo_palette),
+            logo_subject: theme.logo_subject || undefined,
+            logo_effect: theme.logo_effect || undefined,
             preview_url: theme.preview_url || undefined,
             appearance: theme.appearance === 'light' ? 'light' : 'dark',
             latest_version: requestedLatest || versions[0]?.version || '',
@@ -411,12 +422,21 @@ async function main() {
             || (existing?.default_version && approvedVersions.find(version => version.version === existing.default_version)?.version)
             || approvedVersions[0]?.version
             || '';
+        const logoUrl = String(themeMetadata.logo_url || existing?.logo_url || '').trim();
+        const logoPalette = normalizeLogoPalette(themeMetadata.logo_palette || existing?.logo_palette);
         themesByName.set(themeName, {
             id,
             name: themeName,
             display_name: String(themeMetadata.display_name || existing?.display_name || themeName).slice(0, 128),
             description: String(descriptionArgument || themeMetadata.description || existing?.description || `${themeName} 的 SillyTavern 界面主题。`).slice(0, 500),
-            ...(existing?.preview_url ? { preview_url: existing.preview_url } : {}),
+            ...(logoUrl ? {
+                logo_url: logoUrl,
+                logo_alt: String(themeMetadata.logo_alt || existing?.logo_alt || `${themeName}主题标识`).slice(0, 160),
+                logo_palette: logoPalette,
+                logo_subject: String(themeMetadata.logo_subject || existing?.logo_subject || '').slice(0, 120),
+                logo_effect: String(themeMetadata.logo_effect || existing?.logo_effect || '').slice(0, 120),
+            } : {}),
+            ...((themeMetadata.preview_url || existing?.preview_url) ? { preview_url: themeMetadata.preview_url || existing.preview_url } : {}),
             appearance: themeMetadata.appearance || candidates[0]?.appearance || existing?.appearance || 'dark',
             latest_version: latest.version,
             default_version: defaultVersion,
@@ -428,7 +448,7 @@ async function main() {
 
     const catalog = {
         schema_version: 3,
-        name: 'Zeya 酒馆主题库',
+        name: '酒疫主题器',
         updated_at: new Date().toISOString(),
         themes,
     };

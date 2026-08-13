@@ -1,6 +1,6 @@
 {
     "schema_version": 3,
-    "name": "Zeya SillyTavern Themes",
+    "name": "酒疫主题器",
     "updated_at": "2026-08-10T00:00:00Z",
     "themes": [
         {
@@ -8,6 +8,11 @@
             "name": "示例主题",
             "display_name": "示例主题",
             "description": "替换为正式主题说明。",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/3333333333333333333333333333333333333333/assets/example-theme/theme-logo.webp",
+            "logo_alt": "示例主题的抽象花朵标识",
+            "logo_palette": ["#f3dfc8", "#b85f68", "#31574c"],
+            "logo_subject": "抽象花朵",
+            "logo_effect": "颗粒版画",
             "preview_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/example-theme/preview.webp",
             "appearance": "light",
             "latest_version": "test-0.2",
