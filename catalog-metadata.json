@@ -11,7 +11,18 @@
                     "name": "原版",
                     "changelog": "春来主题最初发布版本。"
                 }
-            }
+            },
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%98%A5%E6%9D%A5/theme-logo.webp",
+            "logo_alt": "嫩枝从翻页纸角生长的春来主题标识",
+            "logo_palette": [
+                "#f8f5eb",
+                "#f8fbf7",
+                "#687169",
+                "#3f4b45",
+                "#e7e3d4"
+            ],
+            "logo_subject": "翻页春枝",
+            "logo_effect": "植物木刻与纸纤维"
         },
         "春来（加了一抹绿）": {
             "appearance": "light",
@@ -25,11 +36,22 @@
                     "name": "加了毛玻璃",
                     "changelog": "消息区域增加半透明毛玻璃效果。"
                 }
-            }
+            },
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%98%A5%E6%9D%A5%EF%BC%88%E5%8A%A0%E4%BA%86%E4%B8%80%E6%8A%B9%E7%BB%BF%EF%BC%89/theme-logo.webp",
+            "logo_alt": "玻璃压叶的春来加绿版本主题标识",
+            "logo_palette": [
+                "#f8f5eb",
+                "#687169",
+                "#f8fbf7",
+                "#283d36",
+                "#e7e3d4"
+            ],
+            "logo_subject": "玻璃压叶",
+            "logo_effect": "植物单版印刷与磨砂玻璃"
         },
         "暮潮回声": {
             "appearance": "light",
-            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/d44862960fa1ec6526f3511b1569aff22e4b63b0/assets/%E6%9A%AE%E6%BD%AE%E5%9B%9E%E5%A3%B0/theme-logo.webp",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%9A%AE%E6%BD%AE%E5%9B%9E%E5%A3%B0/theme-logo.webp",
             "logo_alt": "纸船驶过月牙回声浪的暮潮回声主题标识",
             "logo_palette": [
                 "#fff8eb",
@@ -40,6 +62,412 @@
             ],
             "logo_subject": "纸船与月牙回声浪",
             "logo_effect": "梦核颗粒印刷与细密半调"
+        },
+        "草莓编辑部": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E8%8D%89%E8%8E%93%E7%BC%96%E8%BE%91%E9%83%A8/theme-logo.webp",
+            "logo_alt": "编辑标签与草莓组合的草莓编辑部主题标识",
+            "logo_palette": [
+                "#f8f0e4",
+                "#fff3e7",
+                "#1d291d",
+                "#d9dfc6",
+                "#e5aaa4"
+            ],
+            "logo_subject": "编辑标签草莓",
+            "logo_effect": "柔和孔版印刷颗粒"
+        },
+        "草莓果酱": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E8%8D%89%E8%8E%93%E6%9E%9C%E9%85%B1/theme-logo.webp",
+            "logo_alt": "草莓形果酱印章的草莓果酱主题标识",
+            "logo_palette": [
+                "#c9363d",
+                "#46592c",
+                "#697d46",
+                "#fff9ef",
+                "#2b1d1a"
+            ],
+            "logo_subject": "果酱印章草莓",
+            "logo_effect": "亮面丝网印刷颗粒"
+        },
+        "橙夏汽水": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%A9%99%E5%A4%8F%E6%B1%BD%E6%B0%B4/theme-logo.webp",
+            "logo_alt": "橙片汽水瓶盖的橙夏汽水主题标识",
+            "logo_palette": [
+                "#80665b",
+                "#4c9da4",
+                "#f9d8c6",
+                "#ffd8c7",
+                "#fffdf7"
+            ],
+            "logo_subject": "橙片汽水盖",
+            "logo_effect": "错位印刷与汽泡颗粒"
+        },
+        "赤芦夜行": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E8%B5%A4%E8%8A%A6%E5%A4%9C%E8%A1%8C/theme-logo.webp",
+            "logo_alt": "红芦弯向夜路的赤芦夜行主题标识",
+            "logo_palette": [
+                "#0b0b0c",
+                "#050506",
+                "#080809",
+                "#e8e3d8",
+                "#ce3435"
+            ],
+            "logo_subject": "红芦与夜路",
+            "logo_effect": "高反差亚麻油毡刻印"
+        },
+        "第37层观测档案": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E7%AC%AC37%E5%B1%82%E8%A7%82%E6%B5%8B%E6%A1%A3%E6%A1%88/theme-logo.webp",
+            "logo_alt": "观测塔升出城市档案的主题标识",
+            "logo_palette": [
+                "#8c4e31",
+                "#6d5633",
+                "#d4b567",
+                "#456753",
+                "#a9823f"
+            ],
+            "logo_subject": "观测塔与档案城廓",
+            "logo_effect": "陈旧档案剪纸印刷"
+        },
+        "红蓝编辑风": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E7%BA%A2%E8%93%9D%E7%BC%96%E8%BE%91%E9%A3%8E/theme-logo.webp",
+            "logo_alt": "钢笔尖交叠套准菱形的红蓝编辑风主题标识",
+            "logo_palette": [
+                "#526b7b",
+                "#496b7e",
+                "#dcecf3",
+                "#3f718c",
+                "#f3ead6"
+            ],
+            "logo_subject": "钢笔尖与套准菱形",
+            "logo_effect": "红蓝错位凸版印刷"
+        },
+        "红莓序章": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E7%BA%A2%E8%8E%93%E5%BA%8F%E7%AB%A0/theme-logo.webp",
+            "logo_alt": "莓枝落在开篇书页上的红莓序章主题标识",
+            "logo_palette": [
+                "#fffaf1",
+                "#eaded0",
+                "#71835c",
+                "#8b625b",
+                "#6f4726"
+            ],
+            "logo_subject": "莓枝开篇书页",
+            "logo_effect": "复古藏书票木刻"
+        },
+        "蓝蝶": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E8%93%9D%E8%9D%B6/theme-logo.webp",
+            "logo_alt": "拖着彗尾的蓝蝶主题标识",
+            "logo_palette": [
+                "#c7c2b6",
+                "#f8c5a2",
+                "#0e2d43",
+                "#081d2c",
+                "#e59898"
+            ],
+            "logo_subject": "蓝蝶彗尾",
+            "logo_effect": "梦境颗粒与细密点描"
+        },
+        "落樱": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E8%90%BD%E6%A8%B1/theme-logo.webp",
+            "logo_alt": "花瓣落在编辑裁切标上的落樱主题标识",
+            "logo_palette": [
+                "#75696b",
+                "#3f3a3b",
+                "#8d7f81",
+                "#5e9e85",
+                "#438976"
+            ],
+            "logo_subject": "落樱花瓣与裁切标",
+            "logo_effect": "编辑纸张单版印刷"
+        },
+        "莓笺留白": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E8%8E%93%E7%AC%BA%E7%95%99%E7%99%BD/theme-logo.webp",
+            "logo_alt": "羽笔穿过莓形留白墨迹的莓笺留白主题标识",
+            "logo_palette": [
+                "#d37076",
+                "#8e1d29",
+                "#b32634",
+                "#ad8a53",
+                "#536345"
+            ],
+            "logo_subject": "莓形墨迹与羽笔留白",
+            "logo_effect": "华丽笺册印刷"
+        },
+        "木刻侧影": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%9C%A8%E5%88%BB%E4%BE%A7%E5%BD%B1/theme-logo.webp",
+            "logo_alt": "胡桃木雕刻侧影的木刻侧影主题标识",
+            "logo_palette": [
+                "#70472a",
+                "#f4e7c9",
+                "#352419",
+                "#c7a35e",
+                "#452a19"
+            ],
+            "logo_subject": "胡桃木侧影印版",
+            "logo_effect": "深浅两级木刻"
+        },
+        "奶油贝壳": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E5%A5%B6%E6%B2%B9%E8%B4%9D%E5%A3%B3/theme-logo.webp",
+            "logo_alt": "奶油色扇贝章的奶油贝壳主题标识",
+            "logo_palette": [
+                "#80695b",
+                "#526f7e",
+                "#8b7668",
+                "#766a63",
+                "#4d3b32"
+            ],
+            "logo_subject": "奶油扇贝章",
+            "logo_effect": "压花纸与细沙颗粒"
+        },
+        "霓虹夜刊": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E9%9C%93%E8%99%B9%E5%A4%9C%E5%88%8A/theme-logo.webp",
+            "logo_alt": "折页夜刊露出霓虹蕾丝心的主题标识",
+            "logo_palette": [
+                "#9f4858",
+                "#594845",
+                "#3b3132",
+                "#a87840",
+                "#ef7cab"
+            ],
+            "logo_subject": "夜刊折页与霓虹蕾丝心",
+            "logo_effect": "朋克夜间拼贴"
+        },
+        "柠页": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%9F%A0%E9%A1%B5/theme-logo.webp",
+            "logo_alt": "柠叶翻页露出微光坠的柠页主题标识",
+            "logo_palette": [
+                "#ded3b3",
+                "#e7ddbf",
+                "#65715e",
+                "#344631",
+                "#f0e7cf"
+            ],
+            "logo_subject": "柠叶翻页与微光坠",
+            "logo_effect": "克制藏书票纸纹"
+        },
+        "铅雪青": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E9%93%85%E9%9B%AA%E9%9D%92/theme-logo.webp",
+            "logo_alt": "飞鸟越过山形等高线的铅雪青主题标识",
+            "logo_palette": [
+                "#79a9a8",
+                "#3e7075",
+                "#a9bfbd",
+                "#4f8589",
+                "#906f45"
+            ],
+            "logo_subject": "飞鸟与山形等高线",
+            "logo_effect": "铅笔霜粒印刷"
+        },
+        "清酒档案室": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%B8%85%E9%85%92%E6%A1%A3%E6%A1%88%E5%AE%A4/theme-logo.webp",
+            "logo_alt": "清酒杯嵌入档案标签的清酒档案室主题标识",
+            "logo_palette": [
+                "#8da09c",
+                "#6cb9ad",
+                "#17201f",
+                "#596a67",
+                "#5a9f9a"
+            ],
+            "logo_subject": "清酒杯与档案标签",
+            "logo_effect": "半透明档案盖印"
+        },
+        "晴屿": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%99%B4%E5%B1%BF/theme-logo.webp",
+            "logo_alt": "太阳升起于岛屿纪念坠的晴屿主题标识",
+            "logo_palette": [
+                "#557487",
+                "#fff2bf",
+                "#5c9db4",
+                "#d9eff0",
+                "#9a7b42"
+            ],
+            "logo_subject": "太阳岛屿纪念坠",
+            "logo_effect": "柔和珐琅颗粒"
+        },
+        "苔雨溪笺": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E8%8B%94%E9%9B%A8%E6%BA%AA%E7%AC%BA/theme-logo.webp",
+            "logo_alt": "苔叶月亭流出溪线的苔雨溪笺主题标识",
+            "logo_palette": [
+                "#29463a",
+                "#4d7259",
+                "#9a6c3e",
+                "#8a4046",
+                "#506f7a"
+            ],
+            "logo_subject": "苔叶月亭与溪流",
+            "logo_effect": "湿墨剪纸水彩"
+        },
+        "糖纸拼贴": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E7%B3%96%E7%BA%B8%E6%8B%BC%E8%B4%B4/theme-logo.webp",
+            "logo_alt": "多色糖纸折成星形的糖纸拼贴主题标识",
+            "logo_palette": [
+                "#536b78",
+                "#302a25",
+                "#4d241c",
+                "#5f7d68",
+                "#5c7b8d"
+            ],
+            "logo_subject": "糖纸折叠星",
+            "logo_effect": "撕边哑光拼贴"
+        },
+        "新芽": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%96%B0%E8%8A%BD/theme-logo.webp",
+            "logo_alt": "两片新芽从信封缝生长的主题标识",
+            "logo_palette": [
+                "#faf9f3",
+                "#f8fbf7",
+                "#f7f5ee",
+                "#8b5f5b",
+                "#244f4d"
+            ],
+            "logo_subject": "信封新芽",
+            "logo_effect": "简洁亚麻油毡印刷"
+        },
+        "星票奶铺": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%98%9F%E7%A5%A8%E5%A5%B6%E9%93%BA/theme-logo.webp",
+            "logo_alt": "星形票券与奶瓶盖组合的星票奶铺主题标识",
+            "logo_palette": [
+                "#607b88",
+                "#342923",
+                "#4a271f",
+                "#64806b",
+                "#608295"
+            ],
+            "logo_subject": "星票与奶瓶盖",
+            "logo_effect": "怀旧柜台盖印"
+        },
+        "夜百合铜章": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E5%A4%9C%E7%99%BE%E5%90%88%E9%93%9C%E7%AB%A0/theme-logo.webp",
+            "logo_alt": "百合与蜻蜓压在旧铜章上的主题标识",
+            "logo_palette": [
+                "#76551c",
+                "#526b3b",
+                "#9a681f",
+                "#486e78",
+                "#e0b848"
+            ],
+            "logo_subject": "夜百合与蜻蜓铜章",
+            "logo_effect": "旧铜雕刻与蓝绿铜锈"
+        },
+        "樱岚青笺": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%A8%B1%E5%B2%9A%E9%9D%92%E7%AC%BA/theme-logo.webp",
+            "logo_alt": "蓝色笺纸折成樱花的樱岚青笺主题标识",
+            "logo_palette": [
+                "#28456f",
+                "#173f79",
+                "#8b9bc1",
+                "#edf3fb",
+                "#35568a"
+            ],
+            "logo_subject": "蓝笺折纸樱花",
+            "logo_effect": "日间蓝晒纸纹"
+        },
+        "樱岚青笺·夜": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%A8%B1%E5%B2%9A%E9%9D%92%E7%AC%BA%C2%B7%E5%A4%9C/theme-logo.webp",
+            "logo_alt": "月光照亮折纸樱花的樱岚青笺夜间主题标识",
+            "logo_palette": [
+                "#101828",
+                "#d4e1f7",
+                "#dce8ff",
+                "#91a8cb",
+                "#1a2942"
+            ],
+            "logo_subject": "月下折纸樱花",
+            "logo_effect": "月夜蓝晒纸纹"
+        },
+        "宇宙": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E5%AE%87%E5%AE%99/theme-logo.webp",
+            "logo_alt": "月脊展开编辑轨道的宇宙主题标识",
+            "logo_palette": [
+                "#e9ecf2",
+                "#101013",
+                "#c7d4c3",
+                "#bfc3cc",
+                "#e9c6c6"
+            ],
+            "logo_subject": "月脊与编辑轨道",
+            "logo_effect": "银色半调宇宙印刷"
+        },
+        "雨页": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E9%9B%A8%E9%A1%B5/theme-logo.webp",
+            "logo_alt": "雨滴停在折叠叶页上的雨页主题标识",
+            "logo_palette": [
+                "#87552f",
+                "#72612c",
+                "#45683f",
+                "#8d403d",
+                "#f7f5ed"
+            ],
+            "logo_subject": "叶页上的雨滴",
+            "logo_effect": "湿墨与层叠纸张"
+        },
+        "玉兰": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E7%8E%89%E5%85%B0/theme-logo.webp",
+            "logo_alt": "玉兰盛开在青玉格窗中的主题标识",
+            "logo_palette": [
+                "#110b0b",
+                "#de9960",
+                "#82b29b",
+                "#0f0c0b",
+                "#191312"
+            ],
+            "logo_subject": "玉兰与青玉格窗",
+            "logo_effect": "夜色漆雕与水墨"
+        },
+        "月桂印刷所": {
+            "appearance": "dark",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%9C%88%E6%A1%82%E5%8D%B0%E5%88%B7%E6%89%80/theme-logo.webp",
+            "logo_alt": "月桂叶压入活字印版的月桂印刷所主题标识",
+            "logo_palette": [
+                "#c5b58f",
+                "#d5bf82",
+                "#9b8159",
+                "#ad7d37",
+                "#725024"
+            ],
+            "logo_subject": "月桂活字印版",
+            "logo_effect": "深压凸版与不均油墨"
+        },
+        "Seka": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/Seka/theme-logo.webp",
+            "logo_alt": "两条折纸带交织成环结的Seka主题标识",
+            "logo_palette": [
+                "#819bc3",
+                "#243a5b",
+                "#7b3944",
+                "#765866",
+                "#9b5d69"
+            ],
+            "logo_subject": "双环折纸结",
+            "logo_effect": "克制双色丝网印刷"
         }
     }
 }
