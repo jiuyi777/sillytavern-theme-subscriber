@@ -267,16 +267,19 @@ async function loadExistingCatalog() {
             || versions.find(version => version.approved)?.version
             || '';
         const requestedLatest = normalizedIds.aliases.get(String(theme.latest_version || '').trim()) || String(theme.latest_version || '').trim();
+        const logoUrl = String(theme.logo_url || '').trim();
         return {
             id: theme.id,
             name: theme.name,
             display_name: theme.display_name || theme.name,
             description: theme.description || '',
-            logo_url: theme.logo_url || undefined,
-            logo_alt: theme.logo_alt || undefined,
-            logo_palette: normalizeLogoPalette(theme.logo_palette),
-            logo_subject: theme.logo_subject || undefined,
-            logo_effect: theme.logo_effect || undefined,
+            ...(logoUrl ? {
+                logo_url: logoUrl,
+                logo_alt: theme.logo_alt || `${theme.name}主题标识`,
+                logo_palette: normalizeLogoPalette(theme.logo_palette),
+                logo_subject: theme.logo_subject || '',
+                logo_effect: theme.logo_effect || '',
+            } : {}),
             preview_url: theme.preview_url || undefined,
             appearance: theme.appearance === 'light' ? 'light' : 'dark',
             latest_version: requestedLatest || versions[0]?.version || '',
