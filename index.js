@@ -1,7 +1,8 @@
 const EXTENSION_KEY = 'theme_subscriber';
 const PANEL_ID = 'theme-subscriber-panel';
 const PENDING_THEME_KEY = 'theme-subscriber:pending-theme';
-const RECOVERY_HOST_ID = 'theme-subscriber-recovery-host';
+const RECOVERY_MENU_CONTAINER_ID = 'theme-subscriber-recovery-wand-container';
+const RECOVERY_MENU_ITEM_ID = 'theme-subscriber-recovery-wand-item';
 const RECOVERY_SHORTCUT_KEY = 'r';
 const LEGACY_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/catalog.json';
 const MUTABLE_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
@@ -71,6 +72,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     lastCheckedAt: '',
     previousTheme: '',
     lastBrokenTheme: '',
+    recoveryEnabled: false,
 });
 
 function clone(value) {
@@ -101,6 +103,9 @@ function getSettings() {
     }
     if (typeof settings.lastBrokenTheme !== 'string') {
         settings.lastBrokenTheme = '';
+    }
+    if (typeof settings.recoveryEnabled !== 'boolean') {
+        settings.recoveryEnabled = false;
     }
     return settings;
 }
@@ -491,6 +496,19 @@ async function recoverPreviousTheme() {
     }
 }
 
+function updateBrokenThemeDeleteButton() {
+    const button = document.getElementById('theme-subscriber-delete-broken');
+    const label = document.getElementById('theme-subscriber-broken-theme-name');
+    if (!(button instanceof HTMLButtonElement)) {
+        return;
+    }
+    const brokenTheme = getSettings().lastBrokenTheme.trim();
+    button.disabled = !brokenTheme;
+    if (label) {
+        label.textContent = brokenTheme ? `已记录：${brokenTheme}` : '返回后会在这里记录刚才的坏主题。';
+    }
+}
+
 async function deleteThemeByName(name) {
     const response = await fetch('/api/themes/delete', {
         method: 'POST',
@@ -515,100 +533,94 @@ async function deleteThemeByName(name) {
     ctx.saveSettingsDebounced();
 }
 
-async function deleteCurrentBrokenTheme() {
+async function deleteRecordedBrokenTheme() {
+    const settings = getSettings();
+    const brokenTheme = settings.lastBrokenTheme.trim();
     const currentTheme = getCurrentThemeName();
-    const targetTheme = getRecoveryTarget(currentTheme);
-    if (!currentTheme) {
-        notify('error', '当前没有可删除的主题。');
+    if (!brokenTheme) {
+        notify('error', '还没有记录需要删除的坏主题。请先使用“返回上个主题”。');
         return;
     }
-    if (!targetTheme) {
-        notify('error', '没有其他可用主题，不能安全删除当前主题。');
+    const targetTheme = brokenTheme === currentTheme ? getRecoveryTarget(currentTheme) : currentTheme;
+    if (!targetTheme || targetTheme === brokenTheme) {
+        notify('error', '没有其他可用主题，不能安全删除这个主题。');
         return;
     }
-    if (!window.confirm(`确定删除当前主题“${currentTheme}”吗？\n会先强制切换到“${targetTheme}”，再删除本地主题文件。`)) {
+    if (!window.confirm(`确定删除刚才的坏主题“${brokenTheme}”吗？${brokenTheme === currentTheme ? `\n会先强制切换到“${targetTheme}”，再删除本地主题文件。` : ''}`)) {
         return;
     }
     try {
-        switchThemeImmediately(targetTheme);
-        await deleteThemeByName(currentTheme);
-        notify('success', `已删除坏主题“${currentTheme}”，正在返回“${targetTheme}”。`);
-        setTimeout(() => window.location.reload(), 250);
+        if (brokenTheme === currentTheme) {
+            switchThemeImmediately(targetTheme);
+        }
+        await deleteThemeByName(brokenTheme);
+        updateBrokenThemeDeleteButton();
+        notify('success', `已删除坏主题“${brokenTheme}”。`);
+        if (brokenTheme === currentTheme) {
+            setTimeout(() => window.location.reload(), 250);
+        }
     } catch (error) {
         console.error('[主题订阅器] 删除坏主题失败', error);
         notify('error', error?.message || String(error));
     }
 }
 
-function applyRecoveryHostStyles(host) {
-    const styles = {
-        all: 'initial',
-        display: 'block',
-        visibility: 'visible',
-        opacity: '1',
-        position: 'fixed',
-        inset: 'auto max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) auto',
-        width: 'auto',
-        height: 'auto',
-        margin: '0',
-        padding: '0',
-        transform: 'none',
-        filter: 'none',
-        pointerEvents: 'auto',
-        zIndex: '2147483647',
-        colorScheme: 'light',
-    };
-    for (const [property, value] of Object.entries(styles)) {
-        host.style.setProperty(property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`), value, 'important');
-    }
+function removeRecoveryMenuEntry() {
+    document.getElementById(RECOVERY_MENU_CONTAINER_ID)?.remove();
 }
 
-function ensureRecoveryControls() {
-    if (!document.documentElement) {
+function applyRecoveryMenuStyles(container, item) {
+    container.style.setProperty('display', 'block', 'important');
+    container.style.setProperty('visibility', 'visible', 'important');
+    container.style.setProperty('opacity', '1', 'important');
+    item.style.setProperty('display', 'flex', 'important');
+    item.style.setProperty('visibility', 'visible', 'important');
+    item.style.setProperty('opacity', '1', 'important');
+    item.style.setProperty('pointer-events', 'auto', 'important');
+    item.style.setProperty('filter', 'none', 'important');
+}
+
+function ensureRecoveryMenuEntry() {
+    if (!getSettings().recoveryEnabled) {
+        removeRecoveryMenuEntry();
         return null;
     }
-    let host = document.getElementById(RECOVERY_HOST_ID);
-    if (!host) {
-        host = document.createElement('div');
-        host.id = RECOVERY_HOST_ID;
-        host.setAttribute('aria-label', '主题紧急救援');
-        const shadow = host.attachShadow({ mode: 'closed' });
-        const style = document.createElement('style');
-        style.textContent = `
-            :host { all: initial !important; }
-            .recovery { display: flex !important; align-items: stretch !important; gap: 6px !important; font-family: system-ui, sans-serif !important; }
-            button { all: unset !important; box-sizing: border-box !important; min-height: 46px !important; border: 2px solid #fff !important; border-radius: 999px !important; padding: 0 15px !important; color: #fff !important; background: #a51d32 !important; box-shadow: 0 3px 14px rgba(0,0,0,.45) !important; cursor: pointer !important; pointer-events: auto !important; font: 700 14px/1 system-ui,sans-serif !important; touch-action: manipulation !important; user-select: none !important; }
-            button:focus-visible { outline: 3px solid #ffd166 !important; outline-offset: 2px !important; }
-            .delete { width: 46px !important; padding: 0 !important; text-align: center !important; background: #343434 !important; }
-        `;
-        const wrapper = document.createElement('div');
-        wrapper.className = 'recovery';
-        const back = document.createElement('button');
-        back.type = 'button';
-        back.textContent = '↩ 返回上个主题';
-        back.title = '紧急返回上一个可用主题（Ctrl+Alt+Shift+R）';
-        back.addEventListener('click', recoverPreviousTheme);
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'delete';
-        remove.textContent = '删';
-        remove.title = '先返回上个主题，再删除当前坏主题';
-        remove.setAttribute('aria-label', '删除当前坏主题');
-        remove.addEventListener('click', deleteCurrentBrokenTheme);
-        wrapper.append(back, remove);
-        shadow.append(style, wrapper);
-        document.documentElement.append(host);
+    const menu = document.getElementById('extensionsMenu');
+    if (!menu) {
+        return null;
     }
-    if (host.parentElement !== document.documentElement || document.documentElement.lastElementChild !== host) {
-        document.documentElement.append(host);
+    let container = document.getElementById(RECOVERY_MENU_CONTAINER_ID);
+    let item = document.getElementById(RECOVERY_MENU_ITEM_ID);
+    if (!container || !item) {
+        container?.remove();
+        container = document.createElement('div');
+        container.id = RECOVERY_MENU_CONTAINER_ID;
+        container.className = 'extension_container';
+        item = document.createElement('div');
+        item.id = RECOVERY_MENU_ITEM_ID;
+        item.className = 'theme-subscriber-recovery-wand-item interactable';
+        item.setAttribute('role', 'button');
+        item.setAttribute('tabindex', '0');
+        item.title = '返回安装或切换前的上一个主题（Ctrl+Alt+Shift+R）';
+        item.innerHTML = '<span class="extensionsMenuExtensionButton theme-subscriber-recovery-spark" aria-hidden="true">✦</span><span>返回上个主题</span>';
+        item.addEventListener('click', () => void recoverPreviousTheme());
+        item.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                void recoverPreviousTheme();
+            }
+        });
+        container.append(item);
+        menu.append(container);
     }
-    applyRecoveryHostStyles(host);
-    return host;
+    applyRecoveryMenuStyles(container, item);
+    return item;
 }
 
 function installRecoveryShortcut() {
     window.addEventListener('keydown', event => {
-        if (event.ctrlKey && event.altKey && event.shiftKey && event.key.toLowerCase() === RECOVERY_SHORTCUT_KEY) {
+        if (getSettings().recoveryEnabled
+            && event.ctrlKey && event.altKey && event.shiftKey && event.key.toLowerCase() === RECOVERY_SHORTCUT_KEY) {
             event.preventDefault();
             event.stopImmediatePropagation();
             void recoverPreviousTheme();
@@ -933,6 +945,18 @@ function createPanel() {
             <div id="theme-subscriber-status" class="theme-subscriber-status" aria-live="polite">尚未检查主题目录。</div>
             <div id="theme-subscriber-tabs" class="theme-subscriber-tabs" role="tablist" aria-label="主题显示模式"></div>
             <div id="theme-subscriber-list" class="theme-subscriber-list"></div>
+            <section class="theme-subscriber-safety" aria-labelledby="theme-subscriber-safety-title">
+                <div>
+                    <strong id="theme-subscriber-safety-title">主题防呆保护</strong>
+                    <small>开启后，魔棒菜单会出现一个“✦ 返回上个主题”入口，同时启用电脑快捷键 Ctrl+Alt+Shift+R。</small>
+                </div>
+                <label class="checkbox_label theme-subscriber-safety-toggle" for="theme-subscriber-recovery-enabled">
+                    <input id="theme-subscriber-recovery-enabled" type="checkbox">
+                    <span>在魔棒中显示返回入口</span>
+                </label>
+                <button id="theme-subscriber-delete-broken" class="menu_button" type="button" disabled>删除刚才的坏主题</button>
+                <small id="theme-subscriber-broken-theme-name">返回后会在这里记录刚才的坏主题。</small>
+            </section>
             <details class="theme-subscriber-connection">
                 <summary>主题库连接设置</summary>
                 <label for="theme-subscriber-url">主题目录地址</label>
@@ -948,7 +972,7 @@ function createPanel() {
 }
 
 function initialize() {
-    ensureRecoveryControls();
+    ensureRecoveryMenuEntry();
     if (document.getElementById(PANEL_ID)) {
         return;
     }
@@ -968,14 +992,24 @@ function initialize() {
         settings.catalogUrl = input.value.trim();
         ctx.saveSettingsDebounced();
     });
+    const recoveryToggle = document.getElementById('theme-subscriber-recovery-enabled');
+    recoveryToggle.checked = settings.recoveryEnabled;
+    recoveryToggle.addEventListener('input', () => {
+        settings.recoveryEnabled = recoveryToggle.checked;
+        ctx.saveSettingsDebounced();
+        ensureRecoveryMenuEntry();
+        notify('success', settings.recoveryEnabled ? '已在魔棒中开启返回保护。' : '已关闭魔棒返回保护。');
+    });
+    document.getElementById('theme-subscriber-delete-broken').addEventListener('click', deleteRecordedBrokenTheme);
+    updateBrokenThemeDeleteButton();
     document.getElementById('theme-subscriber-refresh').addEventListener('click', loadCatalog);
     resumePendingThemeActivation();
     void loadCatalog();
 }
 
 installRecoveryShortcut();
-ensureRecoveryControls();
-setInterval(ensureRecoveryControls, 1500);
+ensureRecoveryMenuEntry();
+setInterval(ensureRecoveryMenuEntry, 1500);
 
 if (eventTypes?.APP_READY) {
     ctx.eventSource.on(eventTypes.APP_READY, initialize);
