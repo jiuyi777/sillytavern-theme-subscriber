@@ -447,6 +447,26 @@ async function main() {
         });
     }
 
+    for (const [themeName, theme] of themesByName) {
+        const themeMetadata = metadata.themes?.[themeName] || {};
+        const logoUrl = String(themeMetadata.logo_url || theme.logo_url || '').trim();
+        const previewUrl = String(themeMetadata.preview_url || theme.preview_url || '').trim();
+        themesByName.set(themeName, {
+            ...theme,
+            display_name: String(themeMetadata.display_name || theme.display_name || themeName).slice(0, 128),
+            description: String(themeMetadata.description || theme.description || `${themeName} 的 SillyTavern 界面主题。`).slice(0, 500),
+            ...(logoUrl ? {
+                logo_url: logoUrl,
+                logo_alt: String(themeMetadata.logo_alt || theme.logo_alt || `${themeName}主题标识`).slice(0, 160),
+                logo_palette: normalizeLogoPalette(themeMetadata.logo_palette || theme.logo_palette),
+                logo_subject: String(themeMetadata.logo_subject || theme.logo_subject || '').slice(0, 120),
+                logo_effect: String(themeMetadata.logo_effect || theme.logo_effect || '').slice(0, 120),
+            } : {}),
+            ...(previewUrl ? { preview_url: previewUrl } : {}),
+            appearance: themeMetadata.appearance || theme.appearance || 'dark',
+        });
+    }
+
     const themes = [...themesByName.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 
     const catalog = {

@@ -26,6 +26,20 @@
                     "changelog": "消息区域增加半透明毛玻璃效果。"
                 }
             }
+        },
+        "暮潮回声": {
+            "appearance": "light",
+            "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/d44862960fa1ec6526f3511b1569aff22e4b63b0/assets/%E6%9A%AE%E6%BD%AE%E5%9B%9E%E5%A3%B0/theme-logo.webp",
+            "logo_alt": "纸船驶过月牙回声浪的暮潮回声主题标识",
+            "logo_palette": [
+                "#fff8eb",
+                "#9ebbe8",
+                "#e6efff",
+                "#dba8c6",
+                "#26325f"
+            ],
+            "logo_subject": "纸船与月牙回声浪",
+            "logo_effect": "梦核颗粒印刷与细密半调"
         }
     }
 }
