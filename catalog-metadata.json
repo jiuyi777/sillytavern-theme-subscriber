@@ -8,8 +8,8 @@
             "appearance": "light",
             "versions": {
                 "春来.json": {
-                    "name": "原版",
-                    "changelog": "春来主题最初发布版本。"
+                    "name": "引用加深修订版",
+                    "changelog": "加深绿色行内引用与引用块，并隐藏全部滚动条外观；滚动功能保持不变。"
                 }
             },
             "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%98%A5%E6%9D%A5/theme-logo.webp",
@@ -29,12 +29,12 @@
             "default_source_file": "春来v0.1.json",
             "versions": {
                 "春来v0.1.json": {
-                    "name": "初始版本",
-                    "changelog": "保留最初的清爽纸张质感，作为默认推荐版本。"
+                    "name": "毛玻璃＋引用加深版",
+                    "changelog": "正文保留毛玻璃效果，加深绿色行内引用与引用块，特殊字体排版继续保留。"
                 },
                 "春来（加了一抹绿）.json": {
-                    "name": "加了毛玻璃",
-                    "changelog": "消息区域增加半透明毛玻璃效果。"
+                    "name": "毛玻璃＋引用加深版（修订）",
+                    "changelog": "正文毛玻璃与特殊字体保持不变，加深引用色面并隐藏全部滚动条外观。"
                 }
             },
             "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E6%98%A5%E6%9D%A5%EF%BC%88%E5%8A%A0%E4%BA%86%E4%B8%80%E6%8A%B9%E7%BB%BF%EF%BC%89/theme-logo.webp",
@@ -260,6 +260,7 @@
             "logo_effect": "克制藏书票纸纹"
         },
         "铅雪青": {
+            "display_name": "铅雪青 · 明",
             "appearance": "light",
             "logo_url": "https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e368fc50fde74a3c1d6594e0a2b726277a0b5a89/assets/%E9%93%85%E9%9B%AA%E9%9D%92/theme-logo.webp",
             "logo_alt": "飞鸟越过山形等高线的铅雪青主题标识",
@@ -272,6 +273,10 @@
             ],
             "logo_subject": "飞鸟与山形等高线",
             "logo_effect": "铅笔霜粒印刷"
+        },
+        "铅雪青·暗": {
+            "display_name": "铅雪青 · 暗",
+            "appearance": "dark"
         },
         "清酒档案室": {
             "appearance": "light",

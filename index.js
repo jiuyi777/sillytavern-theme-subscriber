@@ -4,7 +4,7 @@ const PENDING_THEME_KEY = 'theme-subscriber:pending-theme';
 const RECOVERY_MENU_CONTAINER_ID = 'theme-subscriber-recovery-wand-container';
 const RECOVERY_MENU_ITEM_ID = 'theme-subscriber-recovery-wand-item';
 const RECOVERY_SHORTCUT_KEY = 'r';
-const FEEDBACK_ISSUE_URL = 'https://github.com/jiuyi777/sillytavern-theme-subscriber/issues/new';
+const DEFAULT_FEEDBACK_ENDPOINT = 'https://jiuyi-theme-feedback.netlify.app/api/feedback';
 const LEGACY_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/themes/catalog.json';
 const RAW_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/main/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
 const PREVIOUS_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/e8f96b7ab7795e1a731c6775a68c9fe82edda135/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
@@ -16,7 +16,6 @@ const MAX_CATALOG_RESPONSE_BYTES = Math.ceil(MAX_CATALOG_BYTES * 4 / 3) + 64 * 1
 const MAX_THEME_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 60000;
 const FETCH_ATTEMPTS = 2;
-const SHA256_PATTERN = /^[a-f0-9]{64}$/i;
 const THEME_KEYS = Object.freeze([
     'name',
     'blur_strength',
@@ -64,6 +63,130 @@ const TRUSTED_HOSTS = new Set([
     'api.github.com',
     'cdn.jsdelivr.net',
 ]);
+const CSS_QUICK_TIPS = Object.freeze([
+    {
+        id: 'global-font',
+        title: '替换全局字体',
+        description: '修改主要界面、聊天正文和输入文字的字体，并保留中文系统回退。',
+        impact: '影响：主要文字；不会自动覆盖图标字体。',
+        caution: '提醒：不要使用全局 * 强制字体，避免Font Awesome图标变成方框。',
+        code: `:root {
+  --my-theme-font: "Noto Serif SC", "Microsoft YaHei", sans-serif;
+}
+
+body,
+#chat .mes_text,
+#send_textarea {
+  font-family: var(--my-theme-font);
+}`,
+    },
+    {
+        id: 'chat-text',
+        title: '调整聊天正文',
+        description: '修改正文大小、行距、字距和文字颜色。',
+        impact: '影响：User与Character消息正文。',
+        caution: '提醒：需要同时查看长正文、列表、引用、代码块和手机宽度。',
+        code: `#chat .mes_text {
+  font-size: 1rem;
+  line-height: 1.85;
+  letter-spacing: 0.02em;
+  color: var(--SmartThemeBodyColor);
+}`,
+    },
+    {
+        id: 'theme-colors',
+        title: '建立主题配色',
+        description: '先建立统一颜色变量，再让不同窗口复用。',
+        impact: '影响：背景、正文、强调、边框和焦点状态。',
+        caution: '提醒：颜色只是示例；正式主题应换成参考图或批准色卡。',
+        code: `:root {
+  --my-page: #f5efe4;
+  --my-surface: #fffaf1;
+  --my-text: #352b25;
+  --my-accent: #9b5f55;
+  --my-border: #c9a99b;
+  --my-focus: #7e4f88;
+}`,
+    },
+    {
+        id: 'message-card',
+        title: '修改消息卡片',
+        description: '给每条消息增加主题背景、边框和圆角。',
+        impact: '影响：聊天区每条真实消息外壳。',
+        caution: '提醒：不要写固定高度，也不要用正文负边距修头像槽。',
+        code: `#chat .mes {
+  background: var(--my-surface);
+  border: 1px solid var(--my-border);
+  border-radius: 1rem;
+}`,
+    },
+    {
+        id: 'input-area',
+        title: '修改输入区域',
+        description: '统一输入框外壳、文字、边框和圆角。',
+        impact: '影响：输入文字、多行输入和底部输入外壳。',
+        caution: '提醒：使用min-height，不要让固定高度裁掉发送或停止按钮。',
+        code: `#send_form {
+  background: var(--my-surface);
+  border: 1px solid var(--my-border);
+  border-radius: 1rem;
+}
+
+#send_textarea {
+  min-height: 2.75rem;
+  color: var(--my-text);
+  background: transparent;
+}`,
+    },
+    {
+        id: 'button-states',
+        title: '修改按钮状态',
+        description: '处理普通、悬停、按下、焦点和禁用状态。',
+        impact: '影响：通用菜单按钮及使用相同宿主的操作键。',
+        caution: '提醒：焦点环不能删除；开关开/关仍需按真实节点单独处理。',
+        code: `.menu_button {
+  color: var(--my-text);
+  background: var(--my-surface);
+  border-color: var(--my-border);
+  filter: none;
+  opacity: 1;
+}
+
+.menu_button:hover,
+.menu_button:active {
+  color: var(--my-accent);
+  border-color: var(--my-accent);
+}
+
+.menu_button:focus-visible {
+  outline: 2px solid var(--my-focus);
+  outline-offset: 2px;
+}
+
+.menu_button:disabled {
+  opacity: 0.55;
+}`,
+    },
+    {
+        id: 'mobile-reading-axis',
+        title: '手机正文居中',
+        description: '在消息父级已经释放头像侧槽后，用对称逻辑属性居中正文。',
+        impact: '影响：窄屏User短消息与Character长正文。',
+        caution: '提醒：不能只写margin-right或padding-right清零；必须先核对消息父级。',
+        code: `@media (max-width: 600px) {
+  #chat .mes_block {
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  #chat .mes_text {
+    max-inline-size: 42rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+}`,
+    },
+]);
 
 const ctx = SillyTavern.getContext();
 const eventTypes = ctx.eventTypes || ctx.event_types;
@@ -76,6 +199,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     previousTheme: '',
     lastBrokenTheme: '',
     recoveryEnabled: false,
+    feedbackEndpoint: DEFAULT_FEEDBACK_ENDPOINT,
 });
 
 function clone(value) {
@@ -111,6 +235,9 @@ function getSettings() {
     if (typeof settings.recoveryEnabled !== 'boolean') {
         settings.recoveryEnabled = false;
     }
+    if (typeof settings.feedbackEndpoint !== 'string' || !settings.feedbackEndpoint.trim()) {
+        settings.feedbackEndpoint = DEFAULT_FEEDBACK_ENDPOINT;
+    }
     return settings;
 }
 
@@ -121,6 +248,101 @@ function notify(kind, message, title = '酒疫主题器') {
     } else {
         console[kind === 'error' ? 'error' : 'log'](`[${title}] ${message}`);
     }
+}
+
+async function copyCssTip(text) {
+    if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+
+    const fallback = document.createElement('textarea');
+    fallback.value = text;
+    fallback.setAttribute('readonly', '');
+    fallback.style.position = 'fixed';
+    fallback.style.inset = '-9999px auto auto -9999px';
+    document.body.append(fallback);
+    fallback.select();
+    try {
+        if (!document.execCommand('copy')) throw new Error('当前环境不允许复制');
+    } finally {
+        fallback.remove();
+    }
+}
+
+function createCssQuickHelper() {
+    const helper = document.createElement('details');
+    helper.className = 'theme-subscriber-css-helper';
+
+    const summary = document.createElement('summary');
+    summary.textContent = 'CSS快捷修改提醒';
+
+    const intro = document.createElement('p');
+    intro.className = 'theme-subscriber-css-helper-intro';
+    intro.textContent = '选择一项查看“改什么、影响哪里、注意什么”，再复制代码。代码不会自动应用到当前主题。';
+
+    const list = document.createElement('div');
+    list.className = 'theme-subscriber-css-tip-list';
+
+    const status = document.createElement('p');
+    status.className = 'theme-subscriber-css-copy-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = '复制后请先换成当前主题的颜色、字体和真实节点。';
+
+    for (const tip of CSS_QUICK_TIPS) {
+        const item = document.createElement('details');
+        item.className = 'theme-subscriber-css-tip';
+
+        const itemSummary = document.createElement('summary');
+        const title = document.createElement('span');
+        title.className = 'theme-subscriber-css-tip-title';
+        title.textContent = tip.title;
+        const description = document.createElement('small');
+        description.textContent = tip.description;
+        itemSummary.append(title, description);
+
+        const body = document.createElement('div');
+        body.className = 'theme-subscriber-css-tip-body';
+        const impact = document.createElement('p');
+        impact.textContent = tip.impact;
+        const caution = document.createElement('p');
+        caution.className = 'theme-subscriber-css-tip-caution';
+        caution.textContent = tip.caution;
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.textContent = tip.code;
+        pre.append(code);
+        const copyButton = document.createElement('button');
+        copyButton.type = 'button';
+        copyButton.className = 'menu_button theme-subscriber-css-copy';
+        copyButton.textContent = '复制代码';
+        copyButton.addEventListener('click', async () => {
+            copyButton.disabled = true;
+            copyButton.textContent = '复制中…';
+            try {
+                await copyCssTip(tip.code);
+                copyButton.textContent = '已复制';
+                status.dataset.state = 'success';
+                status.textContent = `已复制“${tip.title}”。代码不会自动应用，请先确认真实节点。`;
+                window.setTimeout(() => {
+                    copyButton.disabled = false;
+                    copyButton.textContent = '复制代码';
+                }, 1400);
+            } catch (error) {
+                copyButton.disabled = false;
+                copyButton.textContent = '重新复制';
+                status.dataset.state = 'error';
+                status.textContent = `复制失败：${error?.message || '请手动选择代码'}。`;
+            }
+        });
+        body.append(impact, caution, pre, copyButton);
+        item.append(itemSummary, body);
+        list.append(item);
+    }
+
+    helper.append(summary, intro, list, status);
+    return helper;
 }
 
 function updateFeedbackThemeOptions(query = '') {
@@ -159,6 +381,8 @@ async function submitPlayerFeedback() {
     const type = document.getElementById('theme-subscriber-feedback-type');
     const device = document.getElementById('theme-subscriber-feedback-device');
     const message = document.getElementById('theme-subscriber-feedback-message');
+    const submit = document.getElementById('theme-subscriber-feedback-submit');
+    const status = document.getElementById('theme-subscriber-feedback-status');
     if (!(theme instanceof HTMLSelectElement)
         || !(type instanceof HTMLSelectElement)
         || !(device instanceof HTMLInputElement)
@@ -171,35 +395,59 @@ async function submitPlayerFeedback() {
         message.focus();
         return;
     }
-    const body = [
-        `### 主题`,
-        theme.value,
-        '',
-        '### 反馈类型',
-        type.value,
-        '',
-        '### 希望增加或修改的内容',
-        feedback,
-        '',
-        '### 设备 / SillyTavern 版本（可选）',
-        device.value.trim() || '未填写',
-        '',
-        '> 请勿在反馈中粘贴聊天内容、API 密钥、Cookie 或其他私人信息。',
-    ].join('\n');
-    try {
-        await navigator.clipboard?.writeText(body);
-    } catch (error) {
-        console.warn('[酒疫主题器] 无法自动复制反馈内容。', error);
+    if (!(submit instanceof HTMLButtonElement) || !(status instanceof HTMLElement)) return;
+    const endpoint = getSettings().feedbackEndpoint.trim();
+    if (!isTrustedFeedbackUrl(endpoint)) {
+        status.dataset.state = 'error';
+        status.textContent = '反馈服务尚未完成安全连接，请稍后更新酒疫主题器。';
+        notify('error', status.textContent);
+        return;
     }
-    const url = new URL(FEEDBACK_ISSUE_URL);
-    url.searchParams.set('title', `[玩家反馈][${type.value}] ${theme.value}`);
-    url.searchParams.set('body', body);
-    const opened = window.open(url.toString(), '_blank');
-    if (opened) {
-        opened.opener = null;
-        notify('success', '已打开反馈提交页；确认内容后点击 GitHub 的提交按钮。');
-    } else {
-        notify('warning', '浏览器阻止了新页面；反馈内容已尝试复制，请手动打开项目反馈页。');
+    const originalLabel = submit.textContent;
+    submit.disabled = true;
+    submit.textContent = '正在发送…';
+    status.dataset.state = 'loading';
+    status.textContent = '正在酒馆内发送，不会打开其他页面。';
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+                theme: theme.value,
+                type: type.value,
+                message: feedback,
+                device: device.value.trim(),
+                source: '酒疫主题器',
+            }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result?.message || `反馈服务返回 ${response.status}`);
+        message.value = '';
+        status.dataset.state = 'success';
+        status.textContent = result?.issueNumber
+            ? `发送成功，已进入 GitHub 反馈 #${result.issueNumber}。`
+            : '发送成功，已经进入 GitHub 反馈列表。';
+        notify('success', status.textContent);
+    } catch (error) {
+        status.dataset.state = 'error';
+        status.textContent = `发送失败：${error?.message || '反馈服务暂时不可用'}。内容仍保留在输入框中。`;
+        notify('error', status.textContent);
+    } finally {
+        submit.disabled = false;
+        submit.textContent = originalLabel;
+    }
+}
+
+function isTrustedFeedbackUrl(value) {
+    try {
+        const url = new URL(value);
+        return url.protocol === 'https:'
+            && !url.username
+            && !url.password
+            && url.hostname === 'jiuyi-theme-feedback.netlify.app'
+            && url.pathname === '/api/feedback';
+    } catch {
+        return false;
     }
 }
 
@@ -332,13 +580,9 @@ function normalizeThemeVersion(versionEntry, theme, versionIndex, schemaVersion)
 
     const version = String(versionEntry.version || '').trim();
     const themeUrl = requireTrustedUrl(versionEntry.theme_url, `主题“${theme.name}”v${version || versionIndex + 1} 地址`);
-    const sha256 = String(versionEntry.sha256 || '').trim().toLowerCase();
 
     if (!version || version.length > 40) {
         throw new Error(`主题“${theme.name}”的版本无效。`);
-    }
-    if (!SHA256_PATTERN.test(sha256)) {
-        throw new Error(`主题“${theme.name}”v${version} 缺少有效 SHA-256，已拒绝不受校验的安装。`);
     }
 
     const approved = schemaVersion >= 3
@@ -353,7 +597,6 @@ function normalizeThemeVersion(versionEntry, theme, versionIndex, schemaVersion)
         versionName: String(versionEntry.version_name || `v${version}`).trim().slice(0, 80),
         changelog: String(versionEntry.changelog || '暂无更新说明。').trim().slice(0, 300),
         themeUrl,
-        sha256,
         description: theme.description,
         previewUrl: theme.previewUrl,
         minimumClientVersion: String(versionEntry.minimum_client_version || '').trim().slice(0, 40),
@@ -446,11 +689,6 @@ function validateCatalog(value) {
         updatedAt: String(value.updated_at || '').trim().slice(0, 80),
         themes,
     };
-}
-
-async function sha256Hex(bytes) {
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function validateTheme(theme, expectedName) {
@@ -743,7 +981,7 @@ function resumePendingThemeActivation() {
 async function installTheme(entry, button) {
     const settings = getSettings();
     const installed = settings.installed[entry.id];
-    if (installed?.sha256 === entry.sha256) {
+    if (installed?.version === entry.version && installed?.themeUrl === entry.themeUrl) {
         rememberPreviousTheme(entry.themeName);
         if (activateExistingTheme(entry.themeName)) {
             return;
@@ -755,12 +993,7 @@ async function installTheme(entry, button) {
 
     try {
         const resource = await fetchResource(entry.themeUrl, MAX_THEME_BYTES, `主题“${entry.name}”`);
-        button.textContent = '正在校验…';
-        const actualHash = await sha256Hex(resource.bytes);
-        if (actualHash !== entry.sha256) {
-            throw new Error(`主题“${entry.name}”的 SHA-256 与目录记录不一致，已停止安装。`);
-        }
-
+        button.textContent = '正在解析…';
         const theme = validateTheme(parseJson(resource.text, `主题“${entry.name}”`), entry.themeName);
         const warnings = getThemeWarnings(theme);
         if (warnings.length) {
@@ -773,7 +1006,6 @@ async function installTheme(entry, button) {
             name: entry.themeName,
             version: entry.version,
             versionName: entry.versionName,
-            sha256: entry.sha256,
             themeUrl: entry.themeUrl,
             installedAt: new Date().toISOString(),
         };
@@ -794,7 +1026,7 @@ function updateInstallButton(button, entry, installed) {
         button.textContent = '安装并切换';
         return;
     }
-    if (installed.sha256 === entry.sha256) {
+    if (installed.version === entry.version && installed.themeUrl === entry.themeUrl) {
         button.textContent = '切换';
         button.classList.add('theme-subscriber-installed');
         return;
@@ -836,7 +1068,7 @@ function createVersionControls(entry, versions, installed, label) {
         selectedVersion = versions.find(item => item.version === versionSelect.value) || versions[0];
         changelog.textContent = `更新记录：${selectedVersion.changelog}`;
         const stateLabel = selectedVersion.approved ? '正式版' : '测试版';
-        meta.textContent = `${selectedVersion.versionName} · ${stateLabel} · SHA-256 ${selectedVersion.sha256.slice(0, 10)}…`;
+        meta.textContent = `${selectedVersion.versionName} · ${stateLabel}`;
         updateInstallButton(button, selectedVersion, installed);
     };
     versionSelect.addEventListener('change', refreshSelectedVersion);
@@ -953,6 +1185,8 @@ function renderCatalog(catalog) {
         const group = groups.find(item => item.appearance === appearance);
         const entries = approvedThemes.filter(theme => theme.appearance === appearance);
         const testingOnlyEntries = catalog.themes.filter(theme => theme.appearance === appearance && !theme.versions.some(version => version.approved));
+        const installedTestingEntries = testingOnlyEntries.filter(theme => Boolean(getSettings().installed[theme.id]));
+        const uninstalledTestingEntries = testingOnlyEntries.filter(theme => !getSettings().installed[theme.id]);
         list.replaceChildren();
         const heading = document.createElement('div');
         heading.className = 'theme-subscriber-group-heading';
@@ -964,14 +1198,21 @@ function renderCatalog(catalog) {
         heading.append(headingTitle, headingDescription);
         list.append(heading);
         entries.forEach(entry => list.append(createThemeCard(entry)));
-        if (testingOnlyEntries.length > 0) {
+        if (installedTestingEntries.length > 0) {
+            const installedTestingHeading = document.createElement('p');
+            installedTestingHeading.className = 'theme-subscriber-installed-testing-heading';
+            installedTestingHeading.textContent = '已安装测试主题';
+            list.append(installedTestingHeading);
+            installedTestingEntries.forEach(entry => list.append(createThemeCard(entry, { showOnlyUnapproved: true })));
+        }
+        if (uninstalledTestingEntries.length > 0) {
             const testing = document.createElement('details');
             testing.className = 'theme-subscriber-testing-library';
             const summary = document.createElement('summary');
-            summary.textContent = `测试主题（${testingOnlyEntries.length}）`;
+            summary.textContent = `其他测试主题（${uninstalledTestingEntries.length}）`;
             const testingList = document.createElement('div');
             testingList.className = 'theme-subscriber-testing-list';
-            testingOnlyEntries.forEach(entry => testingList.append(createThemeCard(entry, { showOnlyUnapproved: true })));
+            uninstalledTestingEntries.forEach(entry => testingList.append(createThemeCard(entry, { showOnlyUnapproved: true })));
             testing.append(summary, testingList);
             list.append(testing);
         }
@@ -1062,6 +1303,7 @@ function createPanel() {
                 <button id="theme-subscriber-delete-broken" class="menu_button" type="button" disabled>删除刚才的坏主题</button>
                 <small id="theme-subscriber-broken-theme-name">返回后会在这里记录刚才的坏主题。</small>
             </section>
+            <div id="theme-subscriber-css-helper-slot"></div>
             <details class="theme-subscriber-feedback">
                 <summary>玩家反馈与功能建议</summary>
                 <div class="theme-subscriber-feedback-form">
@@ -1082,8 +1324,9 @@ function createPanel() {
                     <textarea id="theme-subscriber-feedback-message" class="text_pole" rows="5" maxlength="3000" placeholder="例如：希望这个主题增加夜间模式；希望手机版按钮更大。"></textarea>
                     <label for="theme-subscriber-feedback-device">设备 / SillyTavern版本（可选）</label>
                     <input id="theme-subscriber-feedback-device" class="text_pole" type="text" maxlength="120" placeholder="例如：安卓手机，SillyTavern 1.14">
-                    <button id="theme-subscriber-feedback-submit" class="menu_button" type="button">生成反馈并打开提交页</button>
-                    <small>反馈会先生成并复制，再打开公开 GitHub 提交页；玩家确认后才真正发送。不要填写聊天内容、密钥或私人信息。</small>
+                    <button id="theme-subscriber-feedback-submit" class="menu_button" type="button">在酒馆内发送反馈</button>
+                    <p id="theme-subscriber-feedback-status" class="theme-subscriber-feedback-status" role="status" aria-live="polite">填写后由你点击发送；不会跳转 GitHub 或打开其他页面。</p>
+                    <small>只发送上面主动填写的主题、类型、建议和可选设备信息；不会读取聊天内容、密钥、Cookie或私人设置。</small>
                 </div>
             </details>
             <details class="theme-subscriber-connection">
@@ -1092,9 +1335,11 @@ function createPanel() {
                 <div class="theme-subscriber-url-row">
                     <input id="theme-subscriber-url" class="text_pole" type="url" inputmode="url" autocomplete="off" spellcheck="false">
                 </div>
-                <small>目录默认从 GitHub Raw 读取，并自动尝试 jsDelivr 备用地址；安装前仍会校验 SHA-256。</small>
+                <small>目录默认从 GitHub Raw 读取，并自动尝试 jsDelivr 备用地址；下载后只检查主题JSON格式与名称，不再因目录哈希不一致阻止安装。</small>
             </details>
         </div>`;
+
+    drawer.querySelector('#theme-subscriber-css-helper-slot')?.replaceWith(createCssQuickHelper());
 
     panel.append(drawer);
     return panel;
