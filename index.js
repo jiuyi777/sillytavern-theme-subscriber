@@ -11,6 +11,8 @@ const PREVIOUS_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillyta
 const PINNED_CATALOG_URL = 'https://raw.githubusercontent.com/jiuyi777/sillytavern-theme-assets/0f5107ad7851b767197eeb65ccf8a219350ac5da/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json';
 const API_CATALOG_URL = 'https://api.github.com/repos/jiuyi777/sillytavern-theme-assets/contents/assets/%E5%9C%A8%E7%BA%BF%E4%B8%BB%E9%A2%98%E5%BA%93/catalog.json?ref=main';
 const DEFAULT_CATALOG_URL = RAW_CATALOG_URL;
+const LOCAL_THEME_LIBRARY_KEY = 'theme-subscriber:local-theme-library:v1';
+const MAX_LOCAL_THEME_COUNT = 24;
 const MAX_CATALOG_BYTES = 2 * 1024 * 1024;
 const MAX_CATALOG_RESPONSE_BYTES = Math.ceil(MAX_CATALOG_BYTES * 4 / 3) + 64 * 1024;
 const MAX_THEME_BYTES = 8 * 1024 * 1024;
@@ -691,14 +693,14 @@ function validateCatalog(value) {
     };
 }
 
-function validateTheme(theme, expectedName) {
+function validateTheme(theme, expectedName = '') {
     if (!theme || typeof theme !== 'object' || Array.isArray(theme)) {
         throw new Error('主题文件根节点必须是对象。');
     }
     if (typeof theme.name !== 'string' || !theme.name.trim() || theme.name.length > 128) {
         throw new Error('主题文件缺少有效 name。');
     }
-    if (theme.name !== expectedName) {
+    if (expectedName && theme.name !== expectedName) {
         throw new Error(`目录名称“${expectedName}”与主题文件名称“${theme.name}”不一致。`);
     }
     if (typeof theme.custom_css !== 'string') {
@@ -722,6 +724,208 @@ function getThemeWarnings(theme) {
         warnings.push('主题 CSS 含有远程图片或字体地址。');
     }
     return warnings;
+}
+
+function getLocalThemeStorage() {
+    const storage = SillyTavern.libs?.localforage;
+    if (!storage || typeof storage.getItem !== 'function' || typeof storage.setItem !== 'function') {
+        throw new Error('当前酒馆不支持主题器本地收藏存储。');
+    }
+    return storage;
+}
+
+function createLocalThemeId() {
+    return globalThis.crypto?.randomUUID?.()
+        || `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function normalizeLocalThemeRecord(record) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+        throw new Error('本地主题记录格式无效。');
+    }
+    const theme = validateTheme(record.theme);
+    return {
+        id: String(record.id || createLocalThemeId()).slice(0, 120),
+        name: theme.name,
+        fileName: String(record.fileName || `${theme.name}.json`).slice(0, 180),
+        importedAt: String(record.importedAt || '').slice(0, 80),
+        bytes: Number.isFinite(Number(record.bytes)) ? Math.max(0, Number(record.bytes)) : 0,
+        warnings: Array.isArray(record.warnings)
+            ? record.warnings.map(item => String(item)).slice(0, 8)
+            : getThemeWarnings(theme),
+        theme,
+    };
+}
+
+async function loadLocalThemeRecords() {
+    const stored = await getLocalThemeStorage().getItem(LOCAL_THEME_LIBRARY_KEY);
+    if (!Array.isArray(stored)) {
+        return [];
+    }
+    const records = [];
+    for (const item of stored.slice(0, MAX_LOCAL_THEME_COUNT)) {
+        try {
+            records.push(normalizeLocalThemeRecord(item));
+        } catch (error) {
+            console.warn('[酒疫主题器] 已忽略损坏的本地主题收藏记录。', error);
+        }
+    }
+    return records;
+}
+
+async function saveLocalThemeRecords(records) {
+    if (!Array.isArray(records) || records.length > MAX_LOCAL_THEME_COUNT) {
+        throw new Error(`本地主题收藏最多保留 ${MAX_LOCAL_THEME_COUNT} 个文件。`);
+    }
+    await getLocalThemeStorage().setItem(LOCAL_THEME_LIBRARY_KEY, records);
+}
+
+function formatLocalThemeSize(bytes) {
+    if (!bytes) return '未知大小';
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function ensureThemeOption(name) {
+    const select = document.getElementById('themes');
+    if (!(select instanceof HTMLSelectElement)) {
+        return false;
+    }
+    if (!Array.from(select.options).some(option => option.value === name)) {
+        select.append(new Option(name, name));
+    }
+    return true;
+}
+
+async function installLocalThemeRecord(record, button) {
+    button.disabled = true;
+    button.textContent = '正在加入…';
+    try {
+        const theme = validateTheme(record.theme);
+        await saveTheme(theme);
+        ensureThemeOption(theme.name);
+        notify('success', `“${theme.name}”已加入酒馆主题列表，但没有启用。`);
+        const status = document.getElementById('theme-subscriber-local-status');
+        if (status) {
+            status.textContent = `“${theme.name}”已加入酒馆主题列表；当前主题没有改变。`;
+            status.dataset.state = 'success';
+        }
+    } catch (error) {
+        console.error('[酒疫主题器] 加入本地主题失败', error);
+        notify('error', error?.message || String(error));
+    } finally {
+        button.disabled = false;
+        button.textContent = '加入酒馆主题列表（不启用）';
+    }
+}
+
+async function removeLocalThemeRecord(recordId) {
+    const records = await loadLocalThemeRecords();
+    const target = records.find(record => record.id === recordId);
+    if (!target || !window.confirm(`从主题器本地收藏中移除“${target.name}”吗？\n不会删除已经加入酒馆的同名主题。`)) {
+        return;
+    }
+    await saveLocalThemeRecords(records.filter(record => record.id !== recordId));
+    await renderLocalThemeLibrary();
+}
+
+function createLocalThemeCard(record) {
+    const card = document.createElement('article');
+    card.className = 'theme-subscriber-local-card';
+
+    const heading = document.createElement('div');
+    heading.className = 'theme-subscriber-local-heading';
+    const title = document.createElement('strong');
+    title.textContent = record.name;
+    const badge = document.createElement('span');
+    badge.textContent = '仅本地收藏';
+    heading.append(title, badge);
+
+    const meta = document.createElement('small');
+    const importedAt = record.importedAt ? new Date(record.importedAt).toLocaleString('zh-CN') : '时间未知';
+    meta.textContent = `${record.fileName} · ${formatLocalThemeSize(record.bytes)} · ${importedAt}`;
+
+    const note = document.createElement('p');
+    note.textContent = record.warnings.length
+        ? `资源提示：${record.warnings.join(' ')}`
+        : '文件格式已通过检查；尚未加入或启用到酒馆。';
+
+    const actions = document.createElement('div');
+    actions.className = 'theme-subscriber-local-actions';
+    const install = document.createElement('button');
+    install.type = 'button';
+    install.className = 'menu_button';
+    install.textContent = '加入酒馆主题列表（不启用）';
+    install.addEventListener('click', () => void installLocalThemeRecord(record, install));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'menu_button';
+    remove.textContent = '移出本地收藏';
+    remove.addEventListener('click', () => void removeLocalThemeRecord(record.id));
+    actions.append(install, remove);
+
+    card.append(heading, meta, note, actions);
+    return card;
+}
+
+async function renderLocalThemeLibrary() {
+    const list = document.getElementById('theme-subscriber-local-list');
+    if (!list) return;
+    list.replaceChildren();
+    try {
+        const records = await loadLocalThemeRecords();
+        if (!records.length) {
+            const empty = document.createElement('small');
+            empty.textContent = '还没有本地收藏的美化文件。';
+            list.append(empty);
+            return;
+        }
+        records.forEach(record => list.append(createLocalThemeCard(record)));
+    } catch (error) {
+        const failed = document.createElement('small');
+        failed.textContent = error?.message || String(error);
+        list.append(failed);
+    }
+}
+
+async function importLocalThemeFile(file) {
+    const status = document.getElementById('theme-subscriber-local-status');
+    if (!(file instanceof File)) return;
+    if (!file.name.toLocaleLowerCase('en-US').endsWith('.json')) {
+        throw new Error('请选择 .json 美化文件。');
+    }
+    if (file.size <= 0 || file.size > MAX_THEME_BYTES) {
+        throw new Error(`美化文件必须大于 0，并且不超过 ${Math.round(MAX_THEME_BYTES / 1024 / 1024)} MB。`);
+    }
+
+    const theme = validateTheme(parseJson(await file.text(), `文件“${file.name}”`));
+    const records = await loadLocalThemeRecords();
+    const existingIndex = records.findIndex(record => record.name === theme.name);
+    if (existingIndex >= 0 && !window.confirm(`本地收藏中已有“${theme.name}”。用这次选择的文件替换它吗？`)) {
+        if (status) status.textContent = '已取消替换，本地收藏没有改变。';
+        return;
+    }
+    if (existingIndex < 0 && records.length >= MAX_LOCAL_THEME_COUNT) {
+        throw new Error(`本地主题收藏最多保留 ${MAX_LOCAL_THEME_COUNT} 个文件。`);
+    }
+
+    const record = normalizeLocalThemeRecord({
+        id: existingIndex >= 0 ? records[existingIndex].id : createLocalThemeId(),
+        name: theme.name,
+        fileName: file.name,
+        importedAt: new Date().toISOString(),
+        bytes: file.size,
+        warnings: getThemeWarnings(theme),
+        theme,
+    });
+    if (existingIndex >= 0) records.splice(existingIndex, 1, record);
+    else records.unshift(record);
+    await saveLocalThemeRecords(records);
+    await renderLocalThemeLibrary();
+    if (status) {
+        status.textContent = `“${theme.name}”已收藏到主题器；没有加入酒馆，也没有切换当前主题。`;
+        status.dataset.state = 'success';
+    }
 }
 
 async function saveTheme(theme) {
@@ -1291,6 +1495,16 @@ function createPanel() {
             <div id="theme-subscriber-status" class="theme-subscriber-status" aria-live="polite">尚未检查主题目录。</div>
             <div id="theme-subscriber-tabs" class="theme-subscriber-tabs" role="tablist" aria-label="主题显示模式"></div>
             <div id="theme-subscriber-list" class="theme-subscriber-list"></div>
+            <details class="theme-subscriber-local-import">
+                <summary>导入本地美化文件</summary>
+                <div class="theme-subscriber-local-import-body">
+                    <p>选择 JSON 后只收藏到主题器，不会加入酒馆、不会启用，也不会改变当前主题。</p>
+                    <input id="theme-subscriber-local-file" type="file" accept=".json,application/json" hidden>
+                    <button id="theme-subscriber-local-choose" class="menu_button" type="button">选择 JSON 美化文件</button>
+                    <p id="theme-subscriber-local-status" class="theme-subscriber-local-status" role="status" aria-live="polite">等待选择文件。</p>
+                    <div id="theme-subscriber-local-list" class="theme-subscriber-local-list"></div>
+                </div>
+            </details>
             <section class="theme-subscriber-safety" aria-labelledby="theme-subscriber-safety-title">
                 <div>
                     <strong id="theme-subscriber-safety-title">主题防呆保护</strong>
@@ -1381,6 +1595,29 @@ function initialize() {
     });
     document.getElementById('theme-subscriber-feedback-submit').addEventListener('click', () => void submitPlayerFeedback());
     updateFeedbackThemeOptions();
+    const localFileInput = document.getElementById('theme-subscriber-local-file');
+    document.getElementById('theme-subscriber-local-choose').addEventListener('click', () => {
+        localFileInput.value = '';
+        localFileInput.click();
+    });
+    localFileInput.addEventListener('change', async () => {
+        const status = document.getElementById('theme-subscriber-local-status');
+        try {
+            if (status) {
+                status.textContent = '正在检查并收藏文件…';
+                status.dataset.state = 'busy';
+            }
+            await importLocalThemeFile(localFileInput.files?.[0]);
+        } catch (error) {
+            console.error('[酒疫主题器] 本地主题收藏失败', error);
+            if (status) {
+                status.textContent = error?.message || String(error);
+                status.dataset.state = 'error';
+            }
+            notify('error', error?.message || String(error));
+        }
+    });
+    void renderLocalThemeLibrary();
     document.getElementById('theme-subscriber-refresh').addEventListener('click', loadCatalog);
     resumePendingThemeActivation();
     void loadCatalog();

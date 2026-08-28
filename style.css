@@ -324,12 +324,97 @@
 
 .theme-subscriber-connection,
 .theme-subscriber-feedback,
-.theme-subscriber-css-helper {
+.theme-subscriber-css-helper,
+.theme-subscriber-local-import {
     margin-top: 0.9rem;
     padding: 0.75rem 0.85rem;
     border: 1px solid var(--ts-line);
     border-radius: 14px;
     background: var(--ts-surface-soft);
+}
+
+.theme-subscriber-local-import-body {
+    display: grid;
+    gap: 0.65rem;
+    padding-top: 0.75rem;
+}
+
+.theme-subscriber-local-import-body > p {
+    margin: 0;
+    line-height: 1.45;
+}
+
+#theme-subscriber-panel #theme-subscriber-local-choose {
+    width: 100%;
+    min-height: 2.65rem;
+    margin: 0;
+    border-radius: 12px;
+}
+
+.theme-subscriber-local-status {
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--ts-line);
+    border-radius: 11px;
+    background: var(--ts-surface);
+}
+
+.theme-subscriber-local-status[data-state="error"] {
+    border-color: var(--ts-danger);
+}
+
+.theme-subscriber-local-status[data-state="success"] {
+    border-color: var(--ts-success);
+}
+
+.theme-subscriber-local-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.theme-subscriber-local-card {
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--ts-line);
+    border-radius: 13px;
+    background: var(--ts-surface);
+}
+
+.theme-subscriber-local-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.4rem 0.75rem;
+}
+
+.theme-subscriber-local-heading span {
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    background: var(--ts-surface-soft);
+    font-size: 0.74rem;
+}
+
+.theme-subscriber-local-card small,
+.theme-subscriber-local-card p {
+    margin: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+    opacity: 0.8;
+}
+
+.theme-subscriber-local-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 0.5rem;
+}
+
+#theme-subscriber-panel .theme-subscriber-local-actions .menu_button {
+    width: 100%;
+    min-height: 2.55rem;
+    margin: 0;
+    border-radius: 11px;
 }
 
 .theme-subscriber-safety {
@@ -594,6 +679,10 @@
     }
 
     .theme-subscriber-list {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .theme-subscriber-local-actions {
         grid-template-columns: minmax(0, 1fr);
     }
 
