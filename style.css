@@ -213,6 +213,162 @@
     background: #29344b;
 }
 
+.theme-subscriber-quick-preview {
+    position: absolute;
+    right: 0.65rem;
+    bottom: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 999px;
+    color: #ffffff;
+    background: rgba(20, 24, 34, 0.82);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+}
+
+.theme-subscriber-quick-preview:hover,
+.theme-subscriber-quick-preview:focus-visible {
+    background: rgba(20, 24, 34, 0.96);
+}
+
+.theme-subscriber-quick-preview:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+#theme-subscriber-preview-modal {
+    --ts-preview-surface: color-mix(in srgb, var(--SmartThemeBlurTintColor) 92%, #151923);
+    --ts-preview-text: var(--SmartThemeBodyColor, #f5f7ff);
+    --ts-preview-line: color-mix(in srgb, var(--SmartThemeBorderColor) 72%, transparent);
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483000 !important;
+    display: grid !important;
+    place-items: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left)) !important;
+    background: rgba(7, 9, 14, 0.82) !important;
+    backdrop-filter: blur(8px) !important;
+    pointer-events: auto !important;
+}
+
+#theme-subscriber-preview-modal .theme-subscriber-preview-dialog {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    width: min(94vw, 960px);
+    max-height: 94vh;
+    overflow: hidden;
+    border: 1px solid var(--ts-preview-line);
+    border-radius: 20px;
+    color: var(--ts-preview-text);
+    background: var(--ts-preview-surface);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.theme-subscriber-preview-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--ts-preview-line);
+}
+
+.theme-subscriber-preview-modal-header > div {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.theme-subscriber-preview-modal-title {
+    font-size: 1.08rem;
+}
+
+.theme-subscriber-preview-modal-meta,
+.theme-subscriber-preview-modal-source,
+.theme-subscriber-preview-modal-position {
+    opacity: 0.78;
+}
+
+.theme-subscriber-preview-close {
+    flex: 0 0 auto;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid var(--ts-preview-line);
+    border-radius: 999px;
+    color: inherit;
+    background: transparent;
+    font-size: 1.65rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.theme-subscriber-preview-close:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+.theme-subscriber-preview-modal-media {
+    display: grid;
+    min-height: min(56vh, 420px);
+    overflow: auto;
+    place-items: center;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.28);
+    touch-action: pan-y;
+}
+
+.theme-subscriber-preview-modal-image {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 62vh;
+    object-fit: contain;
+}
+
+.theme-subscriber-preview-modal-logo {
+    width: min(72vw, 520px);
+    max-height: 46vh;
+    padding: 1rem;
+}
+
+.theme-subscriber-preview-modal-media .theme-subscriber-identity-fallback {
+    min-height: min(46vh, 320px);
+    color: inherit;
+}
+
+.theme-subscriber-preview-modal-details {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--ts-preview-line);
+}
+
+.theme-subscriber-preview-modal-description {
+    margin: 0;
+    line-height: 1.45;
+}
+
+.theme-subscriber-preview-modal-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0 1rem 1rem;
+}
+
+#theme-subscriber-preview-modal .theme-subscriber-preview-modal-controls .menu_button {
+    width: 100%;
+    min-height: 2.65rem;
+    margin: 0;
+    border-radius: 12px;
+}
+
 .theme-subscriber-card-content {
     min-width: 0;
     padding: 0.9rem;
@@ -688,5 +844,32 @@
 
     .theme-subscriber-css-tip pre {
         font-size: 0.78rem;
+    }
+
+    .theme-subscriber-quick-preview span {
+        display: none;
+    }
+
+    .theme-subscriber-quick-preview {
+        width: 2.35rem;
+        min-height: 2.35rem;
+        justify-content: center;
+        padding: 0;
+    }
+
+    #theme-subscriber-preview-modal .theme-subscriber-preview-dialog {
+        width: 100%;
+        max-height: 96vh;
+        border-radius: 16px;
+    }
+
+    .theme-subscriber-preview-modal-media {
+        min-height: 44vh;
+        padding: 0.45rem;
+    }
+
+    .theme-subscriber-preview-modal-controls {
+        gap: 0.4rem;
+        padding-inline: 0.75rem;
     }
 }

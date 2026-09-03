@@ -193,6 +193,9 @@ body,
 const ctx = SillyTavern.getContext();
 const eventTypes = ctx.eventTypes || ctx.event_types;
 let feedbackThemeNames = [];
+let previewGalleryEntries = [];
+let previewGalleryIndex = -1;
+let previewReturnFocus = null;
 
 const DEFAULT_SETTINGS = Object.freeze({
     catalogUrl: DEFAULT_CATALOG_URL,
@@ -1294,6 +1297,156 @@ function createThemeIdentityFallback(entry) {
     return fallback;
 }
 
+function closeThemePreview() {
+    document.getElementById('theme-subscriber-preview-modal')?.remove();
+    if (previewReturnFocus instanceof HTMLElement && document.contains(previewReturnFocus)) {
+        previewReturnFocus.focus();
+    }
+    previewReturnFocus = null;
+    previewGalleryIndex = -1;
+}
+
+function renderThemePreview(entryIndex) {
+    const modal = document.getElementById('theme-subscriber-preview-modal');
+    if (!modal || previewGalleryEntries.length === 0) return;
+    previewGalleryIndex = (entryIndex + previewGalleryEntries.length) % previewGalleryEntries.length;
+    const entry = previewGalleryEntries[previewGalleryIndex];
+    const media = modal.querySelector('.theme-subscriber-preview-modal-media');
+    const title = modal.querySelector('.theme-subscriber-preview-modal-title');
+    const meta = modal.querySelector('.theme-subscriber-preview-modal-meta');
+    const description = modal.querySelector('.theme-subscriber-preview-modal-description');
+    const source = modal.querySelector('.theme-subscriber-preview-modal-source');
+    const position = modal.querySelector('.theme-subscriber-preview-modal-position');
+    const previous = modal.querySelector('.theme-subscriber-preview-previous');
+    const next = modal.querySelector('.theme-subscriber-preview-next');
+
+    title.textContent = entry.displayName;
+    meta.textContent = entry.appearance === 'light' ? '☀ 日间主题' : '☾ 夜间主题';
+    description.textContent = entry.description || '暂无说明';
+    position.textContent = `${previewGalleryIndex + 1} / ${previewGalleryEntries.length}`;
+    previous.disabled = previewGalleryEntries.length < 2;
+    next.disabled = previewGalleryEntries.length < 2;
+    media.replaceChildren();
+
+    const visualUrl = entry.previewUrl || entry.logoUrl;
+    if (visualUrl) {
+        const image = document.createElement('img');
+        image.className = entry.previewUrl
+            ? 'theme-subscriber-preview-modal-image'
+            : 'theme-subscriber-preview-modal-image theme-subscriber-preview-modal-logo';
+        image.src = visualUrl;
+        image.alt = entry.previewUrl ? `${entry.displayName}主题真实截图` : entry.logoAlt;
+        image.referrerPolicy = 'no-referrer';
+        image.addEventListener('error', () => {
+            media.replaceChildren(createThemeIdentityFallback(entry));
+            source.textContent = '当前主题的预览资源加载失败。';
+        }, { once: true });
+        media.append(image);
+        source.textContent = entry.previewUrl
+            ? '正在查看主题真实截图；预览不会安装或切换主题。'
+            : '此主题暂无真实界面截图，当前只显示主题 Logo。';
+    } else {
+        media.append(createThemeIdentityFallback(entry));
+        source.textContent = '此主题暂无真实界面截图或 Logo。';
+    }
+}
+
+function stepThemePreview(offset) {
+    if (previewGalleryIndex < 0 || previewGalleryEntries.length < 2) return;
+    renderThemePreview(previewGalleryIndex + offset);
+}
+
+function openThemePreview(entry, trigger) {
+    closeThemePreview();
+    previewReturnFocus = trigger instanceof HTMLElement ? trigger : null;
+    if (!previewGalleryEntries.some(item => item.id === entry.id)) {
+        previewGalleryEntries = [entry];
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'theme-subscriber-preview-modal';
+    overlay.className = 'theme-subscriber-preview-modal';
+    const dialog = document.createElement('section');
+    dialog.className = 'theme-subscriber-preview-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'theme-subscriber-preview-title');
+
+    const header = document.createElement('header');
+    header.className = 'theme-subscriber-preview-modal-header';
+    const heading = document.createElement('div');
+    const title = document.createElement('strong');
+    title.id = 'theme-subscriber-preview-title';
+    title.className = 'theme-subscriber-preview-modal-title';
+    const meta = document.createElement('span');
+    meta.className = 'theme-subscriber-preview-modal-meta';
+    heading.append(title, meta);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'theme-subscriber-preview-close';
+    close.setAttribute('aria-label', '关闭主题预览');
+    close.textContent = '×';
+    close.addEventListener('click', closeThemePreview);
+    header.append(heading, close);
+
+    const media = document.createElement('div');
+    media.className = 'theme-subscriber-preview-modal-media';
+    let pointerStartX = null;
+    media.addEventListener('pointerdown', event => {
+        if (event.isPrimary) pointerStartX = event.clientX;
+    });
+    media.addEventListener('pointerup', event => {
+        if (pointerStartX === null || !event.isPrimary) return;
+        const distance = event.clientX - pointerStartX;
+        pointerStartX = null;
+        if (Math.abs(distance) >= 48) stepThemePreview(distance < 0 ? 1 : -1);
+    });
+    media.addEventListener('pointercancel', () => {
+        pointerStartX = null;
+    });
+
+    const details = document.createElement('div');
+    details.className = 'theme-subscriber-preview-modal-details';
+    const description = document.createElement('p');
+    description.className = 'theme-subscriber-preview-modal-description';
+    const source = document.createElement('small');
+    source.className = 'theme-subscriber-preview-modal-source';
+    details.append(description, source);
+
+    const controls = document.createElement('div');
+    controls.className = 'theme-subscriber-preview-modal-controls';
+    const previous = document.createElement('button');
+    previous.type = 'button';
+    previous.className = 'menu_button theme-subscriber-preview-previous';
+    previous.textContent = '← 上一个';
+    previous.addEventListener('click', () => stepThemePreview(-1));
+    const position = document.createElement('span');
+    position.className = 'theme-subscriber-preview-modal-position';
+    position.setAttribute('aria-live', 'polite');
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'menu_button theme-subscriber-preview-next';
+    next.textContent = '下一个 →';
+    next.addEventListener('click', () => stepThemePreview(1));
+    controls.append(previous, position, next);
+
+    dialog.append(header, media, details, controls);
+    overlay.append(dialog);
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) closeThemePreview();
+    });
+    dialog.addEventListener('keydown', event => {
+        if (event.key === 'Escape') closeThemePreview();
+        else if (event.key === 'ArrowLeft') stepThemePreview(-1);
+        else if (event.key === 'ArrowRight') stepThemePreview(1);
+    });
+    document.body.append(overlay);
+
+    const startIndex = previewGalleryEntries.findIndex(item => item.id === entry.id);
+    renderThemePreview(Math.max(0, startIndex));
+    close.focus();
+}
+
 function createThemeCard(entry, options = {}) {
     const settings = getSettings();
     const installed = settings.installed[entry.id];
@@ -1303,6 +1456,7 @@ function createThemeCard(entry, options = {}) {
     const card = document.createElement('article');
     card.className = 'theme-subscriber-card';
     card.dataset.appearance = entry.appearance;
+    card.dataset.themeId = entry.id;
 
     const preview = document.createElement('div');
     preview.className = 'theme-subscriber-preview-shell';
@@ -1322,7 +1476,13 @@ function createThemeCard(entry, options = {}) {
     const appearanceLabel = document.createElement('span');
     appearanceLabel.className = 'theme-subscriber-appearance-badge';
     appearanceLabel.textContent = entry.appearance === 'light' ? '☀ 日间主题' : '☾ 夜间主题';
-    preview.append(appearanceLabel);
+    const quickPreview = document.createElement('button');
+    quickPreview.type = 'button';
+    quickPreview.className = 'theme-subscriber-quick-preview';
+    quickPreview.setAttribute('aria-label', `快速预览${entry.displayName}`);
+    quickPreview.innerHTML = '<i class="fa-solid fa-eye" aria-hidden="true"></i><span>快速预览</span>';
+    quickPreview.addEventListener('click', () => openThemePreview(entry, quickPreview));
+    preview.append(appearanceLabel, quickPreview);
     card.append(preview);
 
     const content = document.createElement('div');
@@ -1391,6 +1551,7 @@ function renderCatalog(catalog) {
         const testingOnlyEntries = catalog.themes.filter(theme => theme.appearance === appearance && !theme.versions.some(version => version.approved));
         const installedTestingEntries = testingOnlyEntries.filter(theme => Boolean(getSettings().installed[theme.id]));
         const uninstalledTestingEntries = testingOnlyEntries.filter(theme => !getSettings().installed[theme.id]);
+        previewGalleryEntries = [...entries, ...installedTestingEntries];
         list.replaceChildren();
         const heading = document.createElement('div');
         heading.className = 'theme-subscriber-group-heading';

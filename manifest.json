@@ -4,8 +4,8 @@
     "js": "index.js",
     "css": "style.css",
     "author": "jiuyi",
-    "version": "0.12.0",
-    "description": "酒疫主题器：清晰区分日间与夜间、展示主题身份标识，并提供本地美化收藏导入、CSS快捷提醒、玩家反馈、可选返回保护与非阻断式主题拉取。",
+    "version": "0.13.0",
+    "description": "酒疫主题器：清晰区分日间与夜间、支持真实截图或主题Logo快速预览，并提供本地美化收藏导入、CSS快捷提醒、玩家反馈、可选返回保护与非阻断式主题拉取。",
     "minimum_client_version": "1.14.0",
     "homePage": "https://github.com/jiuyi777/sillytavern-theme-subscriber",
     "auto_update": true
