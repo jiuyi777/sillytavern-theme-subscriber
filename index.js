@@ -1,3 +1,5 @@
+import { mountReadingPreferences } from './reading-preferences.js';
+
 const EXTENSION_KEY = 'theme_subscriber';
 const PANEL_ID = 'theme-subscriber-panel';
 const PENDING_THEME_KEY = 'theme-subscriber:pending-theme';
@@ -192,6 +194,7 @@ body,
 
 const ctx = SillyTavern.getContext();
 const eventTypes = ctx.eventTypes || ctx.event_types;
+let disposeReadingPreferences = null;
 let feedbackThemeNames = [];
 let previewGalleryEntries = [];
 let previewGalleryIndex = -1;
@@ -1780,6 +1783,12 @@ function initialize() {
 
     const panel = createPanel();
     container.append(panel);
+    disposeReadingPreferences?.();
+    disposeReadingPreferences = mountReadingPreferences({
+        panel, getSettings, save: () => ctx.saveSettingsDebounced(),
+        currentTheme: getCurrentThemeName, themeNames: getAvailableThemeNames,
+        activate: activateExistingTheme, rememberPrevious: rememberPreviousTheme, notify,
+    });
 
     const settings = getSettings();
     const quoteSection = document.createElement('section');
@@ -1855,6 +1864,9 @@ function initialize() {
 }
 
 installRecoveryShortcut();
+window.addEventListener('pagehide', event => {
+    if (!event.persisted) disposeReadingPreferences?.();
+});
 if (eventTypes?.SETTINGS_UPDATED) {
     ctx.eventSource.on(eventTypes.SETTINGS_UPDATED, applyQuoteAppearance);
 }
