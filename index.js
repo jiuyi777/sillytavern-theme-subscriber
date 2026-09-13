@@ -204,6 +204,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     previousTheme: '',
     lastBrokenTheme: '',
     recoveryEnabled: false,
+    quoteModes: {},
     feedbackEndpoint: DEFAULT_FEEDBACK_ENDPOINT,
 });
 
@@ -242,6 +243,9 @@ function getSettings() {
     }
     if (typeof settings.feedbackEndpoint !== 'string' || !settings.feedbackEndpoint.trim()) {
         settings.feedbackEndpoint = DEFAULT_FEEDBACK_ENDPOINT;
+    }
+    if (!settings.quoteModes || typeof settings.quoteModes !== 'object' || Array.isArray(settings.quoteModes)) {
+        settings.quoteModes = {};
     }
     return settings;
 }
@@ -1720,6 +1724,49 @@ function createPanel() {
     return panel;
 }
 
+function applyQuoteAppearance() {
+    const theme = getCurrentThemeName();
+    const modes = getSettings().quoteModes;
+    const mode = Object.hasOwn(modes, theme) ? modes[theme] : 'theme';
+    const styleId = 'theme-subscriber-quote-appearance';
+    let style = document.getElementById(styleId);
+    if (!['block', 'color', 'plain'].includes(mode)) {
+        style?.remove();
+    } else {
+        if (!style) {
+            style = document.createElement('style');
+            style.id = styleId;
+            document.head.append(style);
+        }
+        const color = mode === 'block' ? '#ffffff' : mode === 'color'
+            ? 'var(--br-blue, var(--SmartThemeEmColor, var(--SmartThemeBodyColor)))'
+            : 'var(--br-ink, var(--SmartThemeBodyColor))';
+        style.textContent = `
+#chat .mes .mes_text :is(q, blockquote) {
+  background: ${mode === 'block' ? '#171717' : 'transparent'} !important;
+  color: ${color} !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  padding: ${mode === 'block' ? '.12em .4em' : '0'} !important;
+}
+#chat .mes .mes_text blockquote {
+  margin-inline: 0 !important;
+  padding: ${mode === 'block' ? '.65em .85em' : '0'} !important;
+}
+#chat .mes .mes_text :is(q, blockquote) :is(strong, em) {
+  color: ${color} !important;
+}`;
+    }
+    const select = document.getElementById('theme-subscriber-quote-mode');
+    if (select) {
+        select.value = ['block', 'color', 'plain'].includes(mode) ? mode : 'theme';
+        select.disabled = !theme;
+    }
+    const label = document.getElementById('theme-subscriber-quote-theme');
+    if (label) label.textContent = theme ? `仅保存到当前主题：${theme}` : '选择一个主题后可设置';
+}
+
 function initialize() {
     ensureRecoveryMenuEntry();
     if (document.getElementById(PANEL_ID)) {
@@ -1735,6 +1782,29 @@ function initialize() {
     container.append(panel);
 
     const settings = getSettings();
+    const quoteSection = document.createElement('section');
+    quoteSection.className = 'theme-subscriber-safety';
+    quoteSection.innerHTML = `
+        <label for="theme-subscriber-quote-mode"><strong>引用显示</strong></label>
+        <select id="theme-subscriber-quote-mode" class="text_pole">
+            <option value="theme">跟随主题原样</option>
+            <option value="block">黑底引用块</option>
+            <option value="color">只改变文字颜色</option>
+            <option value="plain">普通文字（去掉底色）</option>
+        </select>
+        <small id="theme-subscriber-quote-theme"></small>
+        <small>只改变引用的外观，保留全部文字；选择“跟随主题原样”可恢复。</small>`;
+    panel.querySelector('.theme-subscriber-safety').before(quoteSection);
+    quoteSection.querySelector('select').addEventListener('change', event => {
+        const theme = getCurrentThemeName();
+        if (!theme) return;
+        Object.defineProperty(settings.quoteModes, theme, {
+            value: event.currentTarget.value, enumerable: true, configurable: true, writable: true,
+        });
+        ctx.saveSettingsDebounced();
+        applyQuoteAppearance();
+    });
+    applyQuoteAppearance();
     const input = document.getElementById('theme-subscriber-url');
     input.value = settings.catalogUrl;
     input.addEventListener('change', () => {
@@ -1785,6 +1855,12 @@ function initialize() {
 }
 
 installRecoveryShortcut();
+if (eventTypes?.SETTINGS_UPDATED) {
+    ctx.eventSource.on(eventTypes.SETTINGS_UPDATED, applyQuoteAppearance);
+}
+document.addEventListener('change', event => {
+    if (event.target?.id === 'themes') setTimeout(applyQuoteAppearance, 0);
+});
 ensureRecoveryMenuEntry();
 setInterval(ensureRecoveryMenuEntry, 1500);
 
